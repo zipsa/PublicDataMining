@@ -1,0 +1,63 @@
+---
+title: "LollipopPlot_20180904"
+author: "Hyun Yong Jin"
+date: "September 4, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r lollipop plot}
+#Generating lollipop plot as an alternative to bar graph, using 274 significant genes identified from C4-CD8-LAYN genes
+
+setwd("C:/Users/hjin02/Desktop/scRNAseq/results-analysis/selectgenes/") #Somehow you should directly 
+
+c4 <- read.csv("lollipop-plot.csv", header=T) 
+#Note: highlight categories were categorized based on a, b and c. If assigned by numbers, ggplot2 will recognize the category as continuous variables. 
+
+
+library("ggpubr")
+
+#Default
+ggdotchart(c4, x = "GeneSymbol", y = "F",
+           color = "highlight",                          # Color by groups
+           palette = c("#00AFBB", "#E7B800", "#FC4E07"), # Custom color palette
+           sorting = "ascending",                        # Sort value in descending order
+           add = "segments",                             # Add segments from y = 0 to dots
+           ggtheme = theme_pubr()                        # ggplot2 theme
+           )
+
+
+#Modification
+ggdotchart(c4, x = "GeneSymbol", y = "F",
+           color = "highlight",                          # Color by groups
+           palette = c("#00AFBB", "#E7B800", "#FC4E07"),# Custom color palette
+           dot.size = 2,
+           sorting = "descending",                        # Sort value in descending order
+           add = "segments",                             # Add segments from y = 0 to dots
+           ggtheme = theme_pubr()                        # ggplot2 theme
+           )
+
+
+
+
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

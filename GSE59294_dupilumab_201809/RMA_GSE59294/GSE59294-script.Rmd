@@ -1,0 +1,131 @@
+---
+title: "RMA-Gene Expression Analysis of GSE59294"
+author: "Hyun Yong Jin"
+date: "September 10, 2018"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Microarray analysis of GSE59294 Series. Hamilton et al., JACI 2014
+
+For more experimental details, see GEO <https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE59294>.
+
+Reference regarding RMA analysis <https://www.biostars.org/p/53870/>
+
+
+###Install necessary bioconductor libraries
+
+```{r install bioconductor libraries}
+source("http://bioconductor.org/biocLite.R")
+biocLite()
+
+#Required libraries
+biocLite("GEOquery")
+biocLite("affy")
+biocLite("gcrma")
+
+
+
+```
+
+
+
+### Intall array-specific annotation files
+### Note: It is not ST1.0. or 2.0 that I analyzed before. It is [HG-U133_Plus_2] Affymetrix Human Genome U133 Plus 2.0 Array
+### This probeset has extensive probe sets covering 38500 genes (with >54000 probe sets)
+
+Probe info <http://bioconductor.org/packages/3.7/data/annotation/>
+hgu133plus2.db <http://bioconductor.org/packages/release/data/annotation/html/hgu133plus2.db.html>
+#### Note: Transcriptcluster files in ST1.0 equivalent annotation is not available in hgu133plus. But vectors used by frma for microarray is available. 
+
+```{r HG-U133 Plus Annotation file}
+
+biocLite("hgu133plus2cdf")
+biocLite("hgu133plus2probe") #Probe sequence data for microarrays of type hgu133plus2
+biocLite("hgu133plus2.db") #Affymetrix Human Genome U133 Plus 2.0 Array annotation data 
+biocLite("hgu133plus2frmavecs") #Vectors used by frma for microarrays of type hgu133plus2
+
+
+```
+
+
+###Load the necessary libraries
+```{r Load necessary libraries}
+library(GEOquery)
+library(affy)
+library(gcrma)
+library(hgu133plus2cdf)
+library(hgu133plus2probe) 
+library(hgu133plus2.db)
+library(hgu133plus2frmavecs)
+
+
+```
+
+
+###R markdown Set working directory as match the directory where the codument itselt exists.  knitr::opts_knit$set(root.dir = '/Temp/') option is available but not working in my R. 
+
+
+###Download raw CEL files to the current working directory and untar
+```{r Import GSE59254}
+
+getGEOSuppFiles("GSE59294")
+untar("GSE59294/GSE59294_RAW.tar", exdir="untar")
+cels = list.files("untar/", pattern = "CEL") 
+sapply(paste("untar", cels, sep="/"), gunzip)
+cels = list.files("untar/", pattern = "CEL")
+
+```
+
+### RMA normalization of Raw CEL files from GSE59252 Series 
+```{r RMA normalization}
+
+setwd("/Users/hjin02/Desktop/GSE59294/untar/") #Only changed in this notebook chunk
+raw.data=ReadAffy(verbose=TRUE, filenames=cels, cdfname="hgu133plus2cdf") 
+
+
+#perform RMA normalization (I would normally use GCRMA but it did not work with this chip)
+data.rma.norm=rma(raw.data)
+
+
+
+```
+
+
+
+###Expression dataset summary and export data as CSV
+```{r Export Data}
+
+#Get the important stuff out of the data - the expression estimates for each array
+#RMA normalization
+rma=exprs(data.rma.norm)
+
+#Format values to 5 decimal places
+rma=format(rma, digits=5)
+
+
+#Extract probe ids, entrez symbols, and entrez ids
+probes=row.names(rma)
+
+#ProbeID to gene name conversion from hgu133plus2.db
+
+Symbols = unlist(mget(probes, hgu133plus2SYMBOL, ifnotfound=NA))
+Entrez_IDs = unlist(mget(probes, hgu133plus2ENTREZID, ifnotfound=NA))
+
+#Combine gene annotations with raw data
+rma=cbind(probes,Symbols,Entrez_IDs,rma)
+
+#Write RMA-normalized, mapped data to file
+write.table(rma, file = "GSE59294.txt", quote = FALSE, sep = "\t", row.names = FALSE, col.names = TRUE)
+
+write.csv(rma, file="GSE59294.csv")
+
+
+```
+
+

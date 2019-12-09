@@ -1,0 +1,72 @@
+---
+title: "Slope plot (parallel cordinate plot) of GSE59294"
+author: "Hyun Yong Jin"
+date: "September 11, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+###Reference <https://acaird.github.io/computers/r/2013/11/27/slopegraphs-ggplot>
+
+```{r fig.width=6, fig.height=20}
+
+library(ggplot2)
+library(scales)
+
+
+remove(list=ls())
+
+b <- read.csv("~/il24-206569.csv", header=T)
+
+#Digits function works independently but not inside of script. 
+
+
+#graph
+p<-ggplot(b) + geom_segment(aes(x=0,xend=24,y=Pre.treat,yend=Post.treat),size=.75) #24 is random number to creat figure
+
+
+#Set theme to nothing
+p<-p + theme(panel.background = element_blank())
+p<-p + theme(axis.ticks=element_blank())
+p<-p + theme(axis.text=element_blank())
+
+#p<-p + theme(panel.border=element_blank())
+#p<-p + theme(panel.grid=element_blank())
+
+
+#Set axis lables and limits
+p<-p + xlab("") + ylab("Log2 RMA")
+p<-p + xlim(-12,36)
+p<-p + ylim((0.9*(min(b$Post.treat,b$Pre.treat))),(1.2*(max(b$Post.treat,b$Pre.treat))))
+
+
+
+
+
+#set lables : Patient ID and linear value
+l11<-paste(b$Patient,comma_format()(round(2^b$Pre.treat, digits=2)),sep="\n")
+l13<-paste(b$Patient, comma_format()(round(2^b$Post.treat, digits=2)),sep="\n")
+
+
+#Label the slopelines
+p<-p + geom_text(label=l13, y=b$Post.treat, x=rep.int(24,length(b$Patient)),hjust=-0.2,size=3.5)
+
+p<-p + geom_text(label=l11, y=b$Pre.treat, x=rep.int( 0,length(b$Patient)),hjust=1.2,size=3.5)
+
+
+
+#Label the columns
+p<-p + geom_text(label="Pre-treatment", x=0,     y=(1.1*(max(b$Post.treat,b$Pre.treat))),hjust= 1.2,size=4)
+p<-p + geom_text(label="Post-treatment", x=24,y=(1.1*(max(b$Post.treat,b$Pre.treat))),hjust=-0.1,size=4)
+
+
+plot(p)
+
+
+
+```
+

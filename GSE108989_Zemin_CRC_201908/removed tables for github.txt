@@ -1,0 +1,7 @@
+merged_all.csv
+merved_ccr8.csv
+stat_all.csv
+
+
+were removed from folder for github. 
+The table is backed up in google drive

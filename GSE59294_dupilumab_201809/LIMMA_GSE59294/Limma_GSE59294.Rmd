@@ -1,0 +1,90 @@
+---
+title: "Limma"
+author: "Hyun Yong Jin"
+date: "September 17, 2018"
+output: html_document
+---
+
+##Lima analysis. You can directly load RMA normalized microarray data. The resulting file is the "ExpressionSet" to be used fro Lima analysis. However, I will load resulting csv files as"matrix" with select columns because our dataset structures were compliecated (4 conditions)
+
+# I specify `coef=2` because we are interested in the difference between groups, not the intercept.
+#This hierachical modeling will remove false positive (significant but less fold change) from results
+
+```{r limma}
+
+#Load necessary data as matrix.
+dat <- read.csv("~/GSE59294-limma.csv", header=T)
+#Column 4-18 (n=15): pre-treatment and 19-30 (n=12: post-treatment
+
+mat <-data.matrix(dat[4:ncol(dat)])
+rnames <- dat[,1]
+rownames(mat) <- rnames
+
+class(mat) #Matrix
+str(mat)
+
+
+fac1 <- c(1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2,2,2,2,2) #Post/Pre calculation
+
+library(limma)
+fit <- lmFit(mat, design=model.matrix(~ fac1)) 	
+# A matrix-like data object containing log-ratios or log-expression values for a series of arrays, with rows corresponding to genes and columns to samples. Any type of data object that can be processed by getEAWP is acceptable. ExpressionSet can be loaded directly. However, We have 4 conditions which makes hard to select specific data points. I decided to start from matrix file with necessary data only. 
+
+colnames(coef(fit))
+fit <- eBayes(fit)
+tt <- topTable(fit, coef=2, number=Inf, sort.by="none")
+
+#dim(topTable(fit, coef=2, number=Inf, sort.by="none"))
+#Final value will be post/pre value
+
+View(tt)
+
+
+probes=row.names(mat)
+
+library(hgu133plus2.db)
+Symbols = unlist(mget(probes, hgu133plus2SYMBOL, ifnotfound=NA))
+Entrez_IDs = unlist(mget(probes, hgu133plus2ENTREZID, ifnotfound=NA))
+
+
+tt2<- cbind(probes,Symbols,Entrez_IDs,tt)
+
+#Combind with Genename and write table
+write.csv(tt2, file="GSE59294-leasional-pre_vs_post-treat.csv")
+
+
+```
+
+
+
+##Volcano plot 
+```{r, fig.height=8}
+
+
+library(genefilter)
+rtt <- rowttests(mat,as.factor(fac1)) 
+#First argument should be matrix or expression set. 
+#Factor should be factor, my settiong was "numeric". Factor gives to "levels" on top of numeric values
+
+sig <- with(rtt, abs(dm) > .5 & p.value < .01)
+cols <- ifelse(sig,"dodgerblue","black")
+
+
+limmares <- data.frame(dm=coef(fit)[,"fac1"], p.value=fit$p.value[,"fac1"])
+with(limmares, plot(dm, -log10(p.value),cex=.8, pch=16,
+     col=cols, xlab="difference in means",
+     xlim=c(-2,2), ylim=c(0,5)))
+abline(h=2,v=c(-.5,.5), lty=2)
+```
+
+## List of significant genes
+```{r}
+
+tt3<- cbind(tt2, SelectGenes=sig) #Column head as "SelectGenes"
+
+library(dplyr)
+View(filter(tt3, SelectGenes == TRUE))
+
+write.csv(filter(tt3, SelectGenes == TRUE), file="GSE59294-leasional-pre_vs_post-treat-selectgenes.csv")
+
+```

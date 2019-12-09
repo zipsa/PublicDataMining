@@ -1,0 +1,118 @@
+---
+title: "Zemin_CRC&NSCLC_VolcanoPlot"
+author: "Hyun Yong Jin"
+date: "Sep 6, 2019"
+output: html_document
+---
+
+```{r setup}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Volcano plot of GSE99254 and GSE108989
+
+Started from stal_all.csv from previous analysis. 
+Calculate fold-changes of CCR8hi/CCR8low cells and manually selected commonly upregulated and downregulated in both datasets. 
+
+Generated stat_all_common.csv which contains labeling info with commonly regulated genes. 
+
+Current cut-off, the 5-fold significant changes in GSE108989 and 3-fold significant chages in GSE99254 revealed only commonly upregulated genes. 
+
+
+```{r}
+library(ggplot2)
+library(ggrepel)
+library(tidyverse)
+
+a <- read.csv("GSE108989_ccr8_stat_all_common.csv", header=T, stringsAsFactors = FALSE)
+
+# Generate the table without raw CCR8
+a<- a %>% filter(gene_name != "CCR8") #Remove row with CCR8
+dim(a)
+a[c(1:12), c(1:5)]
+
+pla<-ggplot(a, aes(x = log2(FC), y = -log10(p.value))) +
+  geom_point(aes(color = Common, size = Common, alpha = Common)) +
+  scale_color_manual(values = c("red", "grey")) +
+  scale_size_manual(values = c(4,1))+
+  scale_alpha_manual(values = c(1,0.3))+
+  theme_bw(base_size = 12) + 
+  theme(legend.position = "bottom") +
+  geom_vline(xintercept=c(0,4,8,-4,-8), linetype="dashed", color = "black", size=0.3)+
+  geom_hline(yintercept=c(5,10,15,20,25), linetype="dashed", color = "black", size=0.3)+
+  xlim(-8,8)+  ylim(-1,25)+
+  xlab("Log2 (CCR8hi/CCR8low)") + ylab("-Log10 (P-value)")+
+  geom_text_repel(
+    data = subset(a, Common == "Common"),
+    aes(label = gene_name),
+    size = 6,
+    box.padding = unit(0.35, "lines"),
+    point.padding = unit(0.3, "lines")
+  )+
+  ggtitle("CCR8hi/CCR8low in \nTumor Treg in CRC (CD4_C8-CCR8)")+
+  theme(
+    plot.title = element_text(color="deepskyblue3", size=18, face="bold.italic"),
+  axis.title.x = element_text(size=16, face="bold"),
+  axis.title.y = element_text(size=16, face="bold"),
+  legend.position = "none"
+  )
+
+
+
+
+
+b <- read.csv("GSE99254_ccr8_stat_all_common.csv", header=T, stringsAsFactors = FALSE)
+
+# Generate the table without raw CCR8
+b<- b %>% filter(gene_name != "CCR8") #Remove row with CCR8
+dim(b)
+b[c(1:12), c(1:5)]
+
+
+plb<-ggplot(b, aes(x = log2(FC), y = -log10(p.value))) +
+  geom_point(aes(color = Common, size = Common, alpha = Common)) +
+  scale_color_manual(values = c("red", "grey")) +
+  scale_size_manual(values = c(4,1))+
+  scale_alpha_manual(values = c(1,0.3))+
+  theme_bw(base_size = 12) + 
+  theme(legend.position = "bottom") +
+  geom_vline(xintercept=c(0,4,8,-4,-8), linetype="dashed", color = "black", size=0.3)+
+  geom_hline(yintercept=c(5,10,15,20,25), linetype="dashed", color = "black", size=0.3)+
+  xlim(-8,8)+  ylim(-1,25)+
+  xlab("Log2 (CCR8hi/CCR8low)") + ylab("-Log10 (P-value)")+
+  geom_text_repel(
+    data = subset(b, Common == "Common"),
+    aes(label = gene_name),
+    size = 6,
+    box.padding = unit(0.35, "lines"),
+    point.padding = unit(0.3, "lines")
+  )+
+  ggtitle("CCR8hi/CCR8low in \nTumor Treg in NSCLC (CD4_C9-CTLA4)")+
+  theme(
+    plot.title = element_text(color="deepskyblue3", size=18, face="bold.italic"),
+  axis.title.x = element_text(size=16, face="bold"),
+  axis.title.y = element_text(size=16, face="bold"),
+  legend.position = "none"
+  )
+
+
+
+#Generate a combined plot
+library(cowplot)
+p1 <- plot_grid(pla, plb, ncol=2, labels = "AUTO")
+
+plot(p1)
+
+ggsave("GSE99254&GSE108989_CCR8hi_vs_CCR8low_volcano.pdf", p1, width = 12, height = 7)
+
+
+#Unused
+#a$Significant <- ifelse((a$FC>18&a$p.value<0.01)|a$p.value<1/10^15, "Significant", "Not Sig") #common genes were pre-selected and labled under header "Common"
+
+```
+
+
+
+
+
+

@@ -1,0 +1,329 @@
+---
+title: "Zemin_NSCLC_GSE99254-CCR8_Analaysis"
+author: "Hyun Yong Jin"
+date: "August 18, 2019"
+output: html_document
+---
+
+Analysis was done as same as GSE108989 ver1.1 (Zemin/s CRC)
+Ver1.1 as of 20190808 
+  Code readability has been improved.
+Ver1.2 as of 20190816
+  distinct(merged, majorCluster) #This will show list of cluster in the table. 
+
+CD4_C8-FOXP3 cluster represent resting CD4 Treg. Should analyzie CD4_C9-CTLA4 cluster, which represent the suppressive Treg
+
+Downloaded raw table from GSE99254. This table contained normalized gene expression (12415 genes) of single cells (11771 cells).
+Downloaded table from Tamatoa. This table includes individual cell ID and cluster information, has more cells (12346). However, unlike CRC dataset, the cluster contains many non-categorized cells (called "nan").
+Merged two tables. Now I have individual cell (11769) with gene expression profile (12414), removed one un-assigned gene).
+Select cells assigned to CD4_C9-CTLA4. 
+Starting from the CCR8 cluster, I separated the individual cells into two groups. Cells belong to CCR8hi (log2 >3) and CCR8 low (log2<3). Note that I included low expressed CCR8 (less then log2<1) due to low cell number and to be consistent with TNFRSF9+/- comparison done in the original paper.  
+From this point on, I treated the individual cells from CCR8hi group and low group as biological replicates for calculating statistics.
+I calculated mean, FC, SD, p values and other statistics per individual genes.
+From this stat(stat_all.csv), I selected FC > 2 and p values <0.01 genes. This table is attached, showing upregulated gene list in CCR8hi cells. 
+From this stat(stat_all.csv), I selected FC<0.5 genes and p values <0.2. 
+
+
+
+
+```{r global_options}
+knitr::opts_chunk$set(fig.width=12, fig.height=8, fig.path='Output/',
+                     warning=FALSE)
+```
+
+##Download Data
+
+```{r download data}
+#GSE99254
+library(GEOquery)
+
+getGEOSuppFiles('GSE99254', fetch_files = FALSE) #Check to see what is in the supplement files
+
+#There are three normalization data. Based on their method section, norm.centered.txt.gz is the most relevant dataset. 
+#Download all, and select "1 GSE108989_CRC.TCell.S10805.norm.centered.txt.gz"
+
+getGEOSuppFiles('GSE99254') #All three files were downloaded in sub-folder/GSE99254
+
+```
+
+## Analysis from the downloaded table
+
+```{r Merging row data with Tamatoa data}
+## Row data contains gene ID and expression level of each genes. However, cluster information and selection of cells (excluding low quality cells) information is missing. In contrast, downloaded file from Tamatoa contains cluster info, and lower number of cells, presumably removed the low quality cells.
+
+## Idea: Both table contains cell-ID as common identifier. Merge the two table together for downstream analysis. 
+
+library(tidyverse)
+
+tab <- read.delim("GSE99254/GSE99254_NSCLC.TCell.S11769.norm.centered.txt.gz") #Load file as tab delimited txt.
+
+dim(tab)
+tab[c(1:10), c(1:20)]
+
+
+#Start testing with small scale example. 
+tab_test<- tab[c(1:10), c(1:5)]
+n1 <- tab_test$geneSymbol
+t.tab_test <- as.data.frame(t(tab_test[,-c(1:2)])) #remove 1st and 2nd column and transpose
+colnames(t.tab_test) <- n1
+str(t.tab_test)
+
+
+#Transpose the original tab table.
+n2 <- tab$geneSymbol
+t.tab <- as.data.frame(t(tab[,-c(1:2)])) #remove 1st and 2nd column and transpose
+colnames(t.tab) <- n2
+t.tab[c(1:5), c(1:6)] #sanity test
+
+
+#Next is to combine t.tab with data from tamatoa
+id<-read.csv("Tamatoa/identifier-cluster_matching.csv", header=T)
+
+#Now issue is the identifier in t.tab is rowname (without header) and id is in column. Both table is data.frame format. 
+#to merge tables, the cell id in t.tab has to be assigned.
+
+rownames_test <- tibble::rownames_to_column(t.tab_test,"VALUE") #test with small table
+t.tab <-tibble::rownames_to_column(t.tab, "cell_names") #t.tab was overwritten but column was assigne. 
+
+test <- !is.na(names(t.tab)) #64th column nas NA (not assigned) header. Only one missing header. All other headers were fine. 
+
+#Let's remove column with header NA from t.tab
+t.tab <- t.tab[test] #re-assign only TRUE values
+
+dim(t.tab) #10805 x 12547 (12548 before removing NA)
+dim(id) #7172 x 9
+
+#Inner_join will merge table based on common identifier in the same column name. This function is part of dplyr
+t.tab$cell_names[1:10]
+class(t.tab$cell_names) #character
+id$cell_names[1:10]
+class(id$cell_names) #factor
+
+#id$cell_names should be converted to character. For example, second column tSNE1 has numeric value.
+#https://stackoverflow.com/questions/2851015/convert-data-frame-columns-from-factors-to-characters
+
+i <- sapply(id, is.factor)
+id[i] <- lapply(id[i], as.character)
+class(id$cell_names) #Now the cell_names column is converted to character
+
+
+#Merging step.
+#There are a few issues so I resolved them.
+t.tab$cell_names[10] #Id was connected by dot
+id$cell_names[10] #Id was connected by hyphen
+
+#convert hyphen to dot in cell_names columne in id
+?gsub #pattern matching and replacement
+id$cell_names <- gsub("-", ".", id$cell_names)
+
+#Merge two table and excluded cells from no common id. Used inner_join
+merged <- inner_join(id, t.tab, by = "cell_names") 
+dim(merged) #7172 12555
+#Note that id file (from tamatoa) has 7172, and row file has 10805 cells. Among them, 7172 was overlapped. I assume the 3000 cells were removed due to the low expression. 
+
+merged[c(1:8), c(1:12)] #Sanity test.
+write.csv(merged, file="merged_all.csv")
+
+#Selection of CD4_C8_CTLA4 cluster only
+distinct(merged, majorCluster) #Show unique values (all clusters)
+merged_ctla4only<- merged %>% filter(majorCluster =="CD4_C9-CTLA4")
+dim(merged_ctla4only) # 939 cells
+
+write.csv(merged_ctla4only, file="merged_ctla4.csv")
+#Export the merged dataset.
+
+
+
+```
+
+
+
+```{r CTLA4 cluster only, CCR8 and TNFRSF9}
+
+#How about rowVars? But rowVars detects the most variable genes between individual replicates.
+
+merged_ctla4only[c(1:50), c(1:12)] 
+tbl <- merged_ctla4only %>%
+  select(-cell_names, -tSNE1, -tSNE2, -majorCluster, -patient, -tissueType, -cellType, -cyclePhase, -Units) #select the necessary columnes only
+
+tbl[c(1:20), c(1:10)]
+
+#transpose data and maintain the first column as header
+t_tbl <- as.data.frame(t(tbl)) #Transposing number only is much faster.
+colnames(t_tbl) <- merged_ctla4only$cell_names #Add colname back
+
+t_tbl[c(1:20), c(1:10)]
+dim(t_tbl)
+
+#Note that this filter is based on log2 value.
+ccrhi <- tbl %>% filter(CCR8>3) %>% arrange(desc(CCR8)) 
+ccrlo <- tbl %>% filter(CCR8<3) %>% arrange(desc(CCR8)) 
+
+#Now treat individual cells as individual replicate.
+#Transpose the table
+tccrhi <- as.data.frame(t(ccrhi))
+tccrlo <- as.data.frame(t(ccrlo))
+
+#Also note that stat should be done in linear values.
+#Writing quick function to make the whole table to linear values
+lin <- function (x, na.rm=FALSE) (2^x)
+lin_tccrhi <- lin(tccrhi)
+lin_tccrlo <- lin(tccrlo)
+
+#Make sure both table contains same numbers of genes. 12546
+dim(lin_tccrhi)
+dim(lin_tccrlo)
+
+#Calculate fold change CCRhi/CCRlo
+datFC <- t_tbl %>%
+  rownames_to_column("gene_name") %>%
+  mutate(hi_mean = rowMeans(lin_tccrhi)) %>%
+  mutate(lo_mean = rowMeans(lin_tccrlo)) %>%
+  mutate(FC=hi_mean/lo_mean)
+
+datFC[c(1:5), c(1:10)] #first column becomes gene_name
+
+stat <- datFC %>% 
+  select(gene_name, hi_mean, lo_mean, FC) #extracting FC stats only. with rownames
+
+#Calculate SD
+library(genefilter)
+datFCSD <- stat %>%
+  mutate(hi_SD = rowSds(lin_tccrhi)) %>%
+  mutate(lo_SD = rowSds(lin_tccrlo))
+
+#Writing for-loop to calculate t-test in row-wise.
+#See my 20190110 IBD analysis as reference
+
+library(broom) #for tidy function
+testresults <- vector("list", nrow(datFCSD))
+
+#Start for-loop. Takes some time.
+for (j in seq(nrow(datFCSD))) {
+  testresults[[j]] <-tidy(t.test(as.data.frame(lin_tccrhi[j,]), as.data.frame(lin_tccrlo[j,])))
+}
+
+t_stats = do.call(rbind, testresults)
+head(t_stats)
+
+all_stats <-bind_cols(datFCSD, t_stats)
+
+dim(all_stats)
+head(all_stats) 
+#Note that my manucal mean calculation and calculation of tidy (estimate1& estimate2) is identical. 
+
+
+write.csv(all_stats, file="GSE99254_ccr8_stat_all.csv") #Summarized stat table. 
+
+#Select genes with high fold change and significant p values
+up_in_ccr8hi <- all_stats %>%
+  select(-estimate1, -estimate2) %>%
+  filter(p.value <0.01 & FC >2) %>%
+  arrange (desc(FC))
+  
+down_in_ccr8hi <- all_stats %>%
+  select(-estimate1, -estimate2) %>%
+  filter(p.value <0.2 & FC <0.5) %>%
+  arrange (FC) #default is ascending order
+
+write.csv(up_in_ccr8hi, file="GSE99254_2-fold_up_in_ccr8hi_sig.csv") #Summarized stat table.
+write.csv(down_in_ccr8hi, file="GSE99254_2-fold_down_in_ccr8hi.csv") #Summarized stat table. 
+
+
+
+
+#Recapipulating TNFRSF9 results in Guo et al. 2018 paper. 
+
+
+#Note that this filter is based on log2 value.
+tnfrsf9hi <- tbl %>% filter(TNFRSF9>2) %>% arrange(desc(TNFRSF9))
+tnfrsf9lo <- tbl %>% filter(TNFRSF9<2) %>% arrange(desc(TNFRSF9))
+
+#Now treat individual cells as individual replicate.
+#Transpose the table
+ttnfrsf9hi <- as.data.frame(t(tnfrsf9hi))
+ttnfrsf9lo <- as.data.frame(t(tnfrsf9lo))
+
+#Also note that stat should be done in linear values.
+#Writing quick function to make the whole table to linear values
+lin <- function (x, na.rm=FALSE) (2^x)
+lin_ttnfrsf9hi <- lin(ttnfrsf9hi)
+lin_ttnfrsf9lo <- lin(ttnfrsf9lo)
+
+#Make sure both table contains same numbers of genes. 12546
+dim(lin_ttnfrsf9hi)
+dim(lin_ttnfrsf9lo)
+
+#Calculate fold change CCRhi/CCRlo
+datFC2 <- t_tbl %>%
+  rownames_to_column("gene_name") %>%
+  mutate(hi_mean = rowMeans(lin_ttnfrsf9hi)) %>%
+  mutate(lo_mean = rowMeans(lin_ttnfrsf9lo)) %>%
+  mutate(FC=hi_mean/lo_mean)
+
+datFC2[c(1:5), c(1:10)] #first column becomes gene_name
+
+stat <- datFC2 %>% 
+  select(gene_name, hi_mean, lo_mean, FC) #extracting FC stats only. with rownames
+
+#Calculate SD
+library(genefilter)
+datFC2SD <- stat %>%
+  mutate(hi_SD = rowSds(lin_ttnfrsf9hi)) %>%
+  mutate(lo_SD = rowSds(lin_ttnfrsf9lo))
+
+#Writing for-loop to calculate t-test in row-wise.
+#See my 20190110 IBD analysis as reference
+
+library(broom) #for tidy function
+testresults <- vector("list", nrow(datFC2SD))
+
+#Start for-loop. Takes some time.
+for (j in seq(nrow(datFC2SD))) {
+  testresults[[j]] <-tidy(t.test(as.data.frame(lin_ttnfrsf9hi[j,]), as.data.frame(lin_ttnfrsf9lo[j,])))
+}
+
+t_stats2 = do.call(rbind, testresults)
+head(t_stats2)
+
+all_stats2 <-bind_cols(datFC2SD, t_stats2)
+
+dim(all_stats2)
+head(all_stats2) 
+#Note that my manucal mean calculation and calculation of tidy (estimate1& estimate2) is identical. 
+
+
+write.csv(all_stats2, file="GSE99254_tnfrsf9_stat_all.csv") #Summarized stat table. 
+
+#Select genes with high fold change and significant p values
+up_in_tnfrsf9hi <- all_stats2 %>%
+  select(-estimate1, -estimate2) %>%
+  filter(p.value <0.01 & FC >2) %>%
+  arrange (desc(FC))
+  
+down_in_tnfrsf9hi <- all_stats2 %>%
+  select(-estimate1, -estimate2) %>%
+  filter(p.value <0.2 & FC <0.5) %>%
+  arrange (FC) #default is ascending order
+
+write.csv(up_in_tnfrsf9hi, file="GSE99254_2-fold_up_in_tnfrsf9hi_sig.csv") #Summarized stat table.
+write.csv(down_in_tnfrsf9hi, file="GSE99254_2-fold_down_in_tnfrsf9hi.csv") #Summarized stat table. 
+
+
+
+
+
+
+```
+
+
+## Visualization
+
+
+```{r ggplot2}
+#Tried to find our Ruggero lab volcano plot + ggrepel script I wrote. 
+#I would generate a seperate Markdown file for volcano/ggrepel combination
+
+```
+
+

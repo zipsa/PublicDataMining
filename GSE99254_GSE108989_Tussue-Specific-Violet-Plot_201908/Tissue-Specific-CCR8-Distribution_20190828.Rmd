@@ -1,0 +1,897 @@
+---
+title: "Tissue-specific CCR8 expression and Tissue distribution of select CD4 clusters"
+author: "Hyun Yong Jin"
+date: "August 28, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Tissue specific CCR8 expression distribution from GSE108989(CRC) and GSE99254 (NSCLC). May investigate other genes of interests including Cxorf21.
+
+Start from merged_all files from previous GSE108989 and GSE99254 analysis.
+
+Select a subset of CD4 population, focusing on #CD4_C12-CCR8 cluster from GSE108989 or #CD4_C9-CTLA4 from GSE99254.Other Treg population and naive T cells (CCR7+ CD4) was also selected as control for tumor Treg cells. 
+
+"dintinc" of tidyverse to show the unique list in the column 
+script - violin plot 
+script - cowplot 
+
+```{r data frames}
+library(tidyverse)
+
+#Import merged data from previous GSE108989 and GSE99254 analysis
+crc<- read.csv("merged_all_CRC_GSE108989.csv", header=T) 
+nsclc<- read.csv("merged_all_NSCLC_GSE99254.csv", header=T) 
+
+#Sanity test
+dim(crc)
+dim(nsclc)
+
+crc[c(1:5), c(1:12)]
+nsclc[c(1:5), c(1:12)]
+
+#Start from crc dataset
+distinct(crc, Cluster)
+
+#Note that Cluster in Tamatoa and published data is different
+
+#In the paper
+#CD4_C01-CCR7 Tn
+#CD4_C10-FOXP3
+#CD4_C11-IL10 Follicular Treg cells
+#CD4_C12-CTLA4
+
+#In Tamatoa (my current cluster info)
+#CD4_C01-CCR7
+#CD4_C10-IKZF2
+#CD4_C11-IL10
+#CD4_C12-CCR8
+
+#Select the subset of CD4 cluster crom CRC data
+crc.cd4<- crc %>% filter(Cluster=="CD4_C01-CCR7"|Cluster=="CD4_C10-IKZF2"|Cluster=="CD4_C11-IL10"|Cluster=="CD4_C12-CCR8")
+distinct(crc.cd4, Cluster) #Now selected 4 clusters.
+distinct(crc.cd4, SampleType)
+
+#SampleType info from description from GSE108989 omnibus.
+#PTC(CD8+ T cells from peripheral blood), NTC(CD8+T cells from adjacent normal colonrectal tissues) ,TTC (CD8+ T cells from tumor), 
+#PTH(CD3+, CD4+ and CD25- T cells from peripheral blood),NTH(CD3+, CD4+ and CD25- T cells from adjacent normal colonrectal tissues),TTH(CD3+, CD4+ and CD25- T cells from tumor), 
+#PTR(CD3+, CD4+ and CD25high T cells from peripheral blood), NTR(CD3+, CD4+ and CD25high Tcells from adjacent normal colonrectal tissues), TTR(CD3+, CD4+ and CD25high T cells from tumor), 
+#PTY(CD3+, CD4+ and CD25mediate T cells from peripheral blood), NTY(CD3+, CD4+ and CD25mediate T cells from adjacent normal colonrectal tissues), TTY(CD3+, CD4+ and CD25medate T cells from tumor), 
+#PP7(CD3+, CD4+ T cells from peripheral blood), NP7(CD3+, CD4+ T cells from adjacent normal colonrectal tissues), TP7(CD3+, CD4+ T cells from tumor).
+#I combine all three normal, all three blood and all three tumor samples together into a individual categories. 
+
+crc.p <- crc.cd4 %>%
+  select(SampleType, Cluster, CCR8, CXorf21, CTLA4, FOXP3, IL2RA, TNFRSF9, TNFRSF8, EBI3, CCL22) %>%
+  filter(SampleType=="PTR"|SampleType=="PTH"|SampleType=="PTY") #IL2RA is CD25 alias
+
+crc.n <- crc.cd4 %>%
+  select(SampleType, Cluster, CCR8, CXorf21, CTLA4, FOXP3, IL2RA, TNFRSF9, TNFRSF8, EBI3, CCL22) %>%
+  filter(SampleType=="NTR"|SampleType=="NTH"|SampleType=="NTY")
+
+crc.t <- crc.cd4 %>%
+  select(SampleType, Cluster, CCR8, CXorf21, CTLA4, FOXP3, IL2RA, TNFRSF9, TNFRSF8, EBI3, CCL22) %>%
+  filter(SampleType=="TTR"|SampleType=="TTH"|SampleType=="TTY") 
+
+
+
+#Conduct the same analysis from NSCLC dataset 
+distinct(nsclc, tissueType)
+
+distinct(nsclc, majorCluster)
+#In Paper
+#CD4_C1-CCR7 Naive CD4
+#CD4_C8-FOXP3 resting Treg
+#CD4_C9-CTLA4 suppressive Treg
+
+#In Tamatoa (Sampe populations were assigned. Good)
+#CD4_C1-CCR7
+#CD4_C8-FOXP3 
+#CD4_C9-CTLA4
+
+nsclc.cd4<- nsclc %>% filter(majorCluster=="CD4_C1-CCR7"|majorCluster=="CD4_C8-FOXP3"|majorCluster=="CD4_C9-CTLA4")
+distinct(nsclc.cd4, majorCluster) #Now selected 3 clusters of interest.
+
+distinct(nsclc.cd4, tissueType) #Show unique values (all clusters)
+
+nsclc.p <- nsclc.cd4 %>%
+  select(tissueType, majorCluster, CCR8, CXorf21, CTLA4, FOXP3, IL2RA, TNFRSF9, TNFRSF8, EBI3, CCL22) %>%
+  filter(tissueType == "Peripheral blood (P)") 
+
+nsclc.n <- nsclc.cd4 %>%
+  select(tissueType, majorCluster, CCR8, CXorf21, CTLA4, FOXP3, IL2RA, TNFRSF9, TNFRSF8, EBI3, CCL22) %>%
+  filter(tissueType == "Normal (N)") 
+
+nsclc.t <- nsclc.cd4 %>%
+  select(tissueType, majorCluster, CCR8, CXorf21,CTLA4, FOXP3, IL2RA, TNFRSF9, TNFRSF8, EBI3, CCL22) %>%
+  filter(tissueType == "Tumor-infiltrating (T)") 
+
+```
+
+
+
+```{r Pie chart}
+
+library(ggplot2)
+library(scales) #to format the labels in percent. Was not used here
+library(ggrepel) #was not used here
+
+#Pie Chart: cell number incidence of of n, p and t population of ALL cluster
+
+df.crc <-data.frame(
+  group = c("Peripheral", "Normal", "Tumor"),
+  value = c(nrow(crc.p), nrow(crc.n), nrow(crc.t))
+)
+
+# Reordering plot based on Factor levels: https://sebastiansauer.github.io/ordering-bars/
+# In ggplot2, defalt is alphabetical order when character. If factor, the "order of factor levels"" is used
+df.crc$group <- factor(df.crc$group, levels=c("Peripheral", "Normal", "Tumor")) #Reorder plot
+
+pie.crc <- ggplot(df.crc, aes(x="", y=value, fill=group))+
+  geom_bar(width =1, stat = "identity")+
+  coord_polar("y", start=0)+
+  scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9"))+
+  ggtitle("Tissue Origin of \n CRC CD4 T cells (all 4 clusters)") +
+  xlab("# of Cells") + ylab("")+
+  theme_bw()
+
+plot(pie.crc)
+#Save as 6x6
+
+
+df.nsclc <-data.frame(
+  group = c("Peripheral", "Normal", "Tumor"),
+  value = c(nrow(nsclc.p), nrow(nsclc.n), nrow(nsclc.t))
+)
+
+df.nsclc$group <- factor(df.nsclc$group, levels=c("Peripheral", "Normal", "Tumor"))
+
+pie.nsclc <- ggplot(df.nsclc, aes(x="", y=value, fill=group))+
+  geom_bar(width =1, stat = "identity")+
+  coord_polar("y", start=0)+
+  scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9"))+
+  ggtitle("Tissue Origin of \n NSCLC CD4T (all 3 clusters)") +
+  xlab("# of Cells") + ylab("")+
+  theme_bw()
+
+plot(pie.nsclc)
+
+
+
+
+```
+
+
+```{r Analysis of individual clusters}
+#Dissection of origin from individual clusters
+#I have three layers of info. 1. Tissue, 2. Cluster, and 3. Value
+
+## CRC dataset
+
+#Calculate corresponding 12 values and assign to each
+
+#Periphery
+crc.p <- crc.cd4 %>%
+  select(SampleType, Cluster, CCR8, CXorf21, CTLA4, FOXP3, IL2RA, TNFRSF9, TNFRSF8, EBI3, CCL22) %>%
+  filter(SampleType=="PTR"|SampleType=="PTH"|SampleType=="PTY") 
+
+distinct(crc.p, Cluster)
+
+#Periphery&cluster
+crc.p.C01.CCR7 <- crc.p %>% 
+  select(SampleType, Cluster, CCR8, CXorf21, CTLA4, FOXP3, IL2RA, TNFRSF9, TNFRSF8, EBI3, CCL22) %>%
+  filter(Cluster=="CD4_C01-CCR7")
+
+crc.p.C10.IKZF2 <- crc.p %>% 
+  select(SampleType, Cluster, CCR8, CXorf21, CTLA4, FOXP3, IL2RA, TNFRSF9, TNFRSF8, EBI3, CCL22) %>%
+  filter(Cluster=="CD4_C10-IKZF2")
+
+crc.p.C11.IL10 <- crc.p %>% 
+  select(SampleType, Cluster, CCR8, CXorf21, CTLA4, FOXP3, IL2RA, TNFRSF9, TNFRSF8, EBI3, CCL22) %>%
+  filter(Cluster=="CD4_C11-IL10")
+
+crc.p.C12.CCR8 <- crc.p %>% 
+  select(SampleType, Cluster, CCR8, CXorf21, CTLA4, FOXP3, IL2RA, TNFRSF9, TNFRSF8, EBI3, CCL22) %>%
+  filter(Cluster=="CD4_C12-CCR8")
+
+
+
+#Normal
+crc.n <- crc.cd4 %>%
+  select(SampleType, Cluster, CCR8, CXorf21, CTLA4, FOXP3, IL2RA, TNFRSF9, TNFRSF8, EBI3, CCL22) %>%
+  filter(SampleType=="NTR"|SampleType=="NTH"|SampleType=="NTY")
+
+#Normal&cluster
+crc.n.C01.CCR7 <- crc.n %>% 
+  select(SampleType, Cluster, CCR8, CXorf21, CTLA4, FOXP3, IL2RA, TNFRSF9, TNFRSF8, EBI3, CCL22) %>%
+  filter(Cluster=="CD4_C01-CCR7")
+
+crc.n.C10.IKZF2 <- crc.n %>% 
+  select(SampleType, Cluster, CCR8, CXorf21, CTLA4, FOXP3, IL2RA, TNFRSF9, TNFRSF8, EBI3, CCL22) %>%
+  filter(Cluster=="CD4_C10-IKZF2")
+
+crc.n.C11.IL10 <- crc.n %>% 
+  select(SampleType, Cluster, CCR8, CXorf21, CTLA4, FOXP3, IL2RA, TNFRSF9, TNFRSF8, EBI3, CCL22) %>%
+  filter(Cluster=="CD4_C11-IL10")
+
+crc.n.C12.CCR8 <- crc.n %>% 
+  select(SampleType, Cluster, CCR8, CXorf21, CTLA4, FOXP3, IL2RA, TNFRSF9, TNFRSF8, EBI3, CCL22) %>%
+  filter(Cluster=="CD4_C12-CCR8")
+
+
+#Tumor
+crc.t <- crc.cd4 %>%
+  select(SampleType, Cluster, CCR8, CXorf21, CTLA4, FOXP3, IL2RA, TNFRSF9, TNFRSF8, EBI3, CCL22) %>%
+  filter(SampleType=="TTR"|SampleType=="TTH"|SampleType=="TTY") 
+
+#Tumor&cluster
+crc.t.C01.CCR7 <- crc.t %>% 
+  select(SampleType, Cluster, CCR8, CXorf21, CTLA4, FOXP3, IL2RA, TNFRSF9, TNFRSF8, EBI3, CCL22) %>%
+  filter(Cluster=="CD4_C01-CCR7")
+
+crc.t.C10.IKZF2 <- crc.t %>% 
+  select(SampleType, Cluster, CCR8, CXorf21, CTLA4, FOXP3, IL2RA, TNFRSF9, TNFRSF8, EBI3, CCL22) %>%
+  filter(Cluster=="CD4_C10-IKZF2")
+
+crc.t.C11.IL10 <- crc.t %>% 
+  select(SampleType, Cluster, CCR8, CXorf21, CTLA4, FOXP3, IL2RA, TNFRSF9, TNFRSF8, EBI3, CCL22) %>%
+  filter(Cluster=="CD4_C11-IL10")
+
+crc.t.C12.CCR8 <- crc.t %>% 
+  select(SampleType, Cluster, CCR8, CXorf21, CTLA4, FOXP3, IL2RA, TNFRSF9, TNFRSF8, EBI3, CCL22) %>%
+  filter(Cluster=="CD4_C12-CCR8")
+
+#Generate a summary table
+tissue <- rep(c("Peripheral", "Normal", "Tumor"), each = 4)
+cluster <- rep(c("CD4_C01-CCR7","CD4_C10-IKZF2","CD4_C11-IL10","CD4_C12-CCR8"), 3)
+value <- 
+  c(nrow(crc.p.C01.CCR7), nrow(crc.p.C10.IKZF2),nrow(crc.p.C11.IL10), nrow(crc.p.C12.CCR8), nrow(crc.n.C01.CCR7), nrow(crc.n.C10.IKZF2), nrow(crc.n.C11.IL10), nrow(crc.n.C12.CCR8), nrow(crc.t.C01.CCR7), nrow(crc.t.C10.IKZF2), nrow(crc.t.C11.IL10), nrow(crc.t.C12.CCR8))
+
+df.crc.all <- data.frame(tissue, cluster, value)
+df.crc.all$tissue <- factor(df.crc.all$tissue, levels=c("Peripheral", "Normal", "Tumor")) #Reorder bar graph by factor-levels
+factor(df.crc.all$tissue, levels=c("Peripheral", "Normal", "Tumor"))
+
+library(hrbrthemes) #For theme, but did not use
+library(viridis)
+#https://www.r-graph-gallery.com/48-grouped-barplot-with-ggplot2.html
+
+bar.df.crc.all <- 
+  ggplot(df.crc.all, aes(fill=cluster, y=value, x=tissue)) + 
+  geom_bar(position="fill", stat="identity")+
+  ggtitle("Tissue distribution of CD4 clusters in CRC")+
+  xlab("")+
+  ylab("")+
+  scale_fill_viridis(discrete = T)+
+  theme_bw()
+
+plot(bar.df.crc.all)
+
+
+
+## NSCLC dataset
+#Calculate corresponding 9 values and assign to each, same as CRC
+
+#Periphery
+nsclc.p <- nsclc.cd4 %>%
+  select(tissueType, majorCluster, CCR8, CXorf21, CTLA4, FOXP3, IL2RA, TNFRSF9, TNFRSF8, EBI3, CCL22) %>%
+  filter(tissueType == "Peripheral blood (P)")  
+
+distinct(nsclc.p, majorCluster)
+
+#Periphery&cluster
+nsclc.p.C01.CCR7 <- nsclc.p %>% 
+  select(tissueType, majorCluster, CCR8, CXorf21, CTLA4, FOXP3, IL2RA, TNFRSF9, TNFRSF8, EBI3, CCL22) %>%
+  filter(majorCluster=="CD4_C1-CCR7")
+
+nsclc.p.C08.FOXP3 <- nsclc.p %>% 
+  select(tissueType, majorCluster, CCR8, CXorf21, CTLA4, FOXP3, IL2RA, TNFRSF9, TNFRSF8, EBI3, CCL22) %>%
+  filter(majorCluster=="CD4_C8-FOXP3")
+
+nsclc.p.C09.CTLA4 <- nsclc.p %>% 
+  select(tissueType, majorCluster, CCR8, CXorf21, CTLA4, FOXP3, IL2RA, TNFRSF9, TNFRSF8, EBI3, CCL22) %>%
+  filter(majorCluster=="CD4_C9-CTLA4")
+
+
+
+#Normal
+nsclc.n <- nsclc.cd4 %>%
+  select(tissueType, majorCluster, CCR8, CXorf21, CTLA4, FOXP3, IL2RA, TNFRSF9, TNFRSF8, EBI3, CCL22) %>%
+  filter(tissueType == "Normal (N)") 
+
+#Normal&cluster
+nsclc.n.C01.CCR7 <- nsclc.n %>% 
+  select(tissueType, majorCluster, CCR8, CXorf21, CTLA4, FOXP3, IL2RA, TNFRSF9, TNFRSF8, EBI3, CCL22) %>%
+  filter(majorCluster=="CD4_C1-CCR7")
+
+nsclc.n.C08.FOXP3 <- nsclc.n %>% 
+  select(tissueType, majorCluster, CCR8, CXorf21, CTLA4, FOXP3, IL2RA, TNFRSF9, TNFRSF8, EBI3, CCL22) %>%
+  filter(majorCluster=="CD4_C8-FOXP3")
+
+nsclc.n.C09.CTLA4 <- nsclc.n %>% 
+  select(tissueType, majorCluster, CCR8, CXorf21, CTLA4, FOXP3, IL2RA, TNFRSF9, TNFRSF8, EBI3, CCL22) %>%
+  filter(majorCluster=="CD4_C9-CTLA4")
+
+
+#Tumor
+nsclc.t <- nsclc.cd4 %>%
+  select(tissueType, majorCluster, CCR8, CXorf21, CTLA4, FOXP3, IL2RA, TNFRSF9, TNFRSF8, EBI3, CCL22) %>%
+  filter(tissueType == "Tumor-infiltrating (T)") 
+
+#Tumor&cluster
+nsclc.t.C01.CCR7 <- nsclc.t %>% 
+  select(tissueType, majorCluster, CCR8, CXorf21, CTLA4, FOXP3, IL2RA, TNFRSF9, TNFRSF8, EBI3, CCL22) %>%
+  filter(majorCluster=="CD4_C1-CCR7")
+
+nsclc.t.C08.FOXP3 <- nsclc.t %>% 
+  select(tissueType, majorCluster, CCR8, CXorf21, CTLA4, FOXP3, IL2RA, TNFRSF9, TNFRSF8, EBI3, CCL22) %>%
+  filter(majorCluster=="CD4_C8-FOXP3")
+
+nsclc.t.C09.CTLA4 <- nsclc.t %>% 
+  select(tissueType, majorCluster, CCR8, CXorf21, CTLA4, FOXP3, IL2RA, TNFRSF9, TNFRSF8, EBI3, CCL22) %>%
+  filter(majorCluster=="CD4_C9-CTLA4")
+
+
+tissue <- rep(c("Peripheral", "Normal", "Tumor"), each = 3)
+cluster <- rep(c("CD4_C1-CCR7","CD4_C8-FOXP3","CD4_C9-CTLA4"), 3)
+value <- 
+  c(nrow(nsclc.p.C01.CCR7), nrow(nsclc.p.C08.FOXP3),nrow(nsclc.p.C09.CTLA4), nrow(nsclc.n.C01.CCR7), nrow(nsclc.n.C08.FOXP3),nrow(nsclc.n.C09.CTLA4), nrow(nsclc.t.C01.CCR7), nrow(nsclc.t.C08.FOXP3),nrow(nsclc.t.C09.CTLA4))
+
+df.nsclc.all <- data.frame(tissue, cluster, value)
+df.nsclc.all$tissue <- factor(df.nsclc.all$tissue, levels=c("Peripheral", "Normal", "Tumor")) #Reorder bar graph by factor-levels
+
+
+library(hrbrthemes) #For theme, bud did not use
+library(viridis)
+#https://www.r-graph-gallery.com/48-grouped-barplot-with-ggplot2.html
+
+
+bar.df.nsclc.all <- 
+  ggplot(df.nsclc.all, aes(fill=cluster, y=value, x=tissue)) + 
+  geom_bar(position="fill", stat="identity")+
+  ggtitle("Tissue distribution of CD4 clusters in NSCLC")+
+  xlab("")+
+  ylab("")+
+  scale_fill_viridis(discrete = T)+
+  theme_bw()
+
+plot(bar.df.nsclc.all)
+
+
+```
+
+
+
+```{r violet plot of individual gene: CCR8}
+
+#Graph3 Violet plot of Normal, Peripheral and Tumor T cells (regardless of cluster)
+
+#CCR8 distribution of CRC dataset.
+
+crc.p$tissue <- rep("Peripheral", nrow(crc.p))
+crc.n$tissue <- rep("Normal", nrow(crc.n)) #Need to add new tissue column to combine NTH etc. 
+crc.t$tissue <- rep("Tumor", nrow(crc.t))
+  
+#now you can combine them, which maintain tissue infomration. 
+df.crc.vplot <- rbind(crc.p, crc.n, crc.t)
+df.crc.vplot$tissue <- factor(df.crc.vplot$tissue, levels=c("Peripheral", "Normal", "Tumor")) #Reorder bar graph by factor-levels
+
+
+v.crc.ccr8 <- 
+  ggplot(df.crc.vplot, aes(x=tissue, y=CCR8, fill=tissue)) + 
+  geom_violin(trim=FALSE)+
+  scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9"))+
+  ggtitle("CCR8 exp distribution in CRC by tissue")+
+  xlab("") + ylab("Log2(Norm.TPM)")+
+  theme_bw()
+
+plot(v.crc.ccr8)
+
+#This plot doesnt need to re-order. Alphabetical order is good enough
+v.crc.ccr8.bycluster <- 
+ggplot(crc.cd4, aes(x=Cluster, y=CCR8, fill=Cluster))+
+  geom_violin(trim=FALSE)+
+  scale_fill_viridis(discrete = T)+
+  ggtitle("CCR8 exp distribution in CRC by cluster")+
+  xlab("") + ylab("Log2(Norm.TPM)")+
+  theme_bw()+
+  theme(axis.text.x=element_text(angle=45,hjust=1)) #Note that theme_bw will override theme. Order here is important
+
+plot(v.crc.ccr8.bycluster)
+
+
+
+
+#NSCLC
+nsclc.p$tissue <- rep("Peripheral", nrow(nsclc.p))
+nsclc.n$tissue <- rep("Normal", nrow(nsclc.n)) #Assignment is redundant but did it anyway to have same labeling. 
+nsclc.t$tissue <- rep("Tumor", nrow(nsclc.t))
+
+df.nsclc.vplot <- rbind(nsclc.p, nsclc.n, nsclc.t)
+df.nsclc.vplot$tissue <- factor(df.nsclc.vplot$tissue, levels=c("Peripheral", "Normal", "Tumor")) #Reorder bar graph by factor-levels
+
+v.nsclc.ccr8 <- 
+  ggplot(df.nsclc.vplot, aes(x=tissue, y=CCR8, fill=tissue)) + 
+  geom_violin(trim=FALSE)+
+  scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9"))+
+  ggtitle("CCR8 exp distribution in NSCLC by tissue")+
+  xlab("") + ylab("Log2(Norm.TPM)")+
+  theme_bw()
+
+plot(v.nsclc.ccr8)
+
+v.nsclc.ccr8.bycluster <- 
+ggplot(nsclc.cd4, aes(x=majorCluster, y=CCR8, fill=majorCluster))+
+  geom_violin(trim=FALSE)+
+  scale_fill_viridis(discrete = T)+
+  ggtitle("CCR8 exp distribution in NSCLC by cluster")+
+  xlab("") + ylab("Log2(Norm.TPM)")+
+  theme_bw()+
+  theme(axis.text.x=element_text(angle=45,hjust=1)) #Note that theme_bw will override theme. Order here is important
+
+
+plot(v.nsclc.ccr8.bycluster)
+
+```
+
+
+```{r violet plot of individual gene: CTLA4, FOXP3, IL2RA and others}
+
+#These plot depends on df.crc.vplot table generated in previous section
+
+#CTLA4
+
+v.crc.ctla4 <- 
+  ggplot(df.crc.vplot, aes(x=tissue, y=CTLA4, fill=tissue)) + 
+  geom_violin(trim=FALSE)+
+  scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9"))+
+  ggtitle("CTLA4 exp distribution in CRC by tissue")+
+  xlab("") + ylab("Log2(Norm.TPM)")+
+  theme_bw()
+
+plot(v.crc.ctla4)
+
+#This plot doesnt need to re-order. Alphabetical order is good enough
+v.crc.ctla4.bycluster <- 
+ggplot(crc.cd4, aes(x=Cluster, y=CTLA4, fill=Cluster))+
+  geom_violin(trim=FALSE)+
+  scale_fill_viridis(discrete = T)+
+  ggtitle("CTLA4 exp distribution in CRC by cluster")+
+  xlab("") + ylab("Log2(Norm.TPM)")+
+  theme_bw()+
+  theme(axis.text.x=element_text(angle=45,hjust=1)) #Note that theme_bw will override theme. Order here is important
+
+plot(v.crc.ctla4.bycluster)
+
+
+v.nsclc.ctla4 <- 
+  ggplot(df.nsclc.vplot, aes(x=tissue, y=CTLA4, fill=tissue)) + 
+  geom_violin(trim=FALSE)+
+  scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9"))+
+  ggtitle("CTLA4 exp distribution in NSCLC by tissue")+
+  xlab("") + ylab("Log2(Norm.TPM)")+
+  theme_bw()
+
+plot(v.nsclc.ctla4)
+
+v.nsclc.ctla4.bycluster <- 
+ggplot(nsclc.cd4, aes(x=majorCluster, y=CTLA4, fill=majorCluster))+
+  geom_violin(trim=FALSE)+
+  scale_fill_viridis(discrete = T)+
+  ggtitle("CTLA4 exp distribution in NSCLC by cluster")+
+  xlab("") + ylab("Log2(Norm.TPM)")+
+  theme_bw()+
+  theme(axis.text.x=element_text(angle=45,hjust=1)) #Note that theme_bw will override theme. Order here is important
+
+plot(v.nsclc.ctla4.bycluster)
+
+
+
+
+
+
+
+#FOXP3
+
+v.crc.foxp3 <- 
+  ggplot(df.crc.vplot, aes(x=tissue, y=FOXP3, fill=tissue)) + 
+  geom_violin(trim=FALSE)+
+  scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9"))+
+  ggtitle("FOXP3 exp distribution in CRC by tissue")+
+  xlab("") + ylab("Log2(Norm.TPM)")+
+  theme_bw()
+
+plot(v.crc.foxp3)
+
+#This plot doesnt need to re-order. Alphabetical order is good enough
+v.crc.foxp3.bycluster <- 
+ggplot(crc.cd4, aes(x=Cluster, y=FOXP3, fill=Cluster))+
+  geom_violin(trim=FALSE)+
+  scale_fill_viridis(discrete = T)+
+  ggtitle("FOXP3 exp distribution in CRC by cluster")+
+  xlab("") + ylab("Log2(Norm.TPM)")+
+  theme_bw()+
+  theme(axis.text.x=element_text(angle=45,hjust=1)) #Note that theme_bw will override theme. Order here is important
+
+plot(v.crc.foxp3.bycluster)
+
+
+v.nsclc.foxp3 <- 
+  ggplot(df.nsclc.vplot, aes(x=tissue, y=FOXP3, fill=tissue)) + 
+  geom_violin(trim=FALSE)+
+  scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9"))+
+  ggtitle("FOXP3 exp distribution in NSCLC by tissue")+
+  xlab("") + ylab("Log2(Norm.TPM)")+
+  theme_bw()
+
+plot(v.nsclc.foxp3)
+
+v.nsclc.foxp3.bycluster <- 
+ggplot(nsclc.cd4, aes(x=majorCluster, y=FOXP3, fill=majorCluster))+
+  geom_violin(trim=FALSE)+
+  scale_fill_viridis(discrete = T)+
+  ggtitle("FOXP3 exp distribution in NSCLC by cluster")+
+  xlab("") + ylab("Log2(Norm.TPM)")+
+  theme_bw()+
+  theme(axis.text.x=element_text(angle=45,hjust=1)) #Note that theme_bw will override theme. Order here is important
+
+plot(v.nsclc.foxp3.bycluster)
+
+
+
+
+#IL2RA (CD25)
+
+v.crc.il2ra <- 
+  ggplot(df.crc.vplot, aes(x=tissue, y=IL2RA, fill=tissue)) + 
+  geom_violin(trim=FALSE)+
+  scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9"))+
+  ggtitle("IL2RA(CD25) exp distribution in CRC by tissue")+
+  xlab("") + ylab("Log2(Norm.TPM)")+
+  theme_bw()
+
+
+#This plot doesnt need to re-order. Alphabetical order is good enough
+v.crc.il2ra.bycluster <- 
+ggplot(crc.cd4, aes(x=Cluster, y=IL2RA, fill=Cluster))+
+  geom_violin(trim=FALSE)+
+  scale_fill_viridis(discrete = T)+
+  ggtitle("IL2RA(CD25) exp distribution in CRC by cluster")+
+  xlab("") + ylab("Log2(Norm.TPM)")+
+  theme_bw()+
+  theme(axis.text.x=element_text(angle=45,hjust=1)) #Note that theme_bw will override theme. Order here is important
+
+
+
+v.nsclc.il2ra <- 
+  ggplot(df.nsclc.vplot, aes(x=tissue, y=IL2RA, fill=tissue)) + 
+  geom_violin(trim=FALSE)+
+  scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9"))+
+  ggtitle("IL2RA(CD25) exp distribution in NSCLC by tissue")+
+  xlab("") + ylab("Log2(Norm.TPM)")+
+  theme_bw()
+
+v.nsclc.il2ra.bycluster <- 
+ggplot(nsclc.cd4, aes(x=majorCluster, y=IL2RA, fill=majorCluster))+
+  geom_violin(trim=FALSE)+
+  scale_fill_viridis(discrete = T)+
+  ggtitle("IL2RA(CD25) exp distribution in NSCLC by cluster")+
+  xlab("") + ylab("Log2(Norm.TPM)")+
+  theme_bw()+
+  theme(axis.text.x=element_text(angle=45,hjust=1)) #Note that theme_bw will override theme. Order here is important
+
+
+
+
+
+
+
+#TNFRSF9 (4-1BB)
+
+v.crc.tnfrsf9 <- 
+  ggplot(df.crc.vplot, aes(x=tissue, y=TNFRSF9, fill=tissue)) + 
+  geom_violin(trim=FALSE)+
+  scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9"))+
+  ggtitle("TNFRSF9(4-1BB) exp distribution in CRC by tissue")+
+  xlab("") + ylab("Log2(Norm.TPM)")+
+  theme_bw()
+
+
+#This plot doesnt need to re-order. Alphabetical order is good enough
+v.crc.tnfrsf9.bycluster <- 
+ggplot(crc.cd4, aes(x=Cluster, y=TNFRSF9, fill=Cluster))+
+  geom_violin(trim=FALSE)+
+  scale_fill_viridis(discrete = T)+
+  ggtitle("TNFRSF9(4-1BB) exp distribution in CRC by cluster")+
+  xlab("") + ylab("Log2(Norm.TPM)")+
+  theme_bw()+
+  theme(axis.text.x=element_text(angle=45,hjust=1)) #Note that theme_bw will override theme. Order here is important
+
+
+v.nsclc.tnfrsf9 <- 
+  ggplot(df.nsclc.vplot, aes(x=tissue, y=TNFRSF9, fill=tissue)) + 
+  geom_violin(trim=FALSE)+
+  scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9"))+
+  ggtitle("TNFRSF9(4-1BB) exp distribution in NSCLC by tissue")+
+  xlab("") + ylab("Log2(Norm.TPM)")+
+  theme_bw()
+
+
+v.nsclc.tnfrsf9.bycluster <- 
+ggplot(nsclc.cd4, aes(x=majorCluster, y=TNFRSF9, fill=majorCluster))+
+  geom_violin(trim=FALSE)+
+  scale_fill_viridis(discrete = T)+
+  ggtitle("TNFRSF9(4-1BB) exp distribution in NSCLC by cluster")+
+  xlab("") + ylab("Log2(Norm.TPM)")+
+  theme_bw()+
+  theme(axis.text.x=element_text(angle=45,hjust=1)) #Note that theme_bw will override theme. Order here is important
+
+
+
+
+# TNFRSF8
+
+v.crc.tnfrsf8 <- 
+  ggplot(df.crc.vplot, aes(x=tissue, y=TNFRSF8, fill=tissue)) + 
+  geom_violin(trim=FALSE)+
+  scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9"))+
+  ggtitle("TNFRSF8 exp distribution in CRC by tissue")+
+  xlab("") + ylab("Log2(Norm.TPM)")+
+  theme_bw()
+
+
+#This plot doesnt need to re-order. Alphabetical order is good enough
+v.crc.tnfrsf8.bycluster <- 
+ggplot(crc.cd4, aes(x=Cluster, y=TNFRSF8, fill=Cluster))+
+  geom_violin(trim=FALSE)+
+  scale_fill_viridis(discrete = T)+
+  ggtitle("TNFRSF8 exp distribution in CRC by cluster")+
+  xlab("") + ylab("Log2(Norm.TPM)")+
+  theme_bw()+
+  theme(axis.text.x=element_text(angle=45,hjust=1)) #Note that theme_bw will override theme. Order here is important
+
+
+v.nsclc.tnfrsf8 <- 
+  ggplot(df.nsclc.vplot, aes(x=tissue, y=TNFRSF8, fill=tissue)) + 
+  geom_violin(trim=FALSE)+
+  scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9"))+
+  ggtitle("TNFRS8 exp distribution in NSCLC by tissue")+
+  xlab("") + ylab("Log2(Norm.TPM)")+
+  theme_bw()
+
+
+v.nsclc.tnfrsf8.bycluster <- 
+ggplot(nsclc.cd4, aes(x=majorCluster, y=TNFRSF8, fill=majorCluster))+
+  geom_violin(trim=FALSE)+
+  scale_fill_viridis(discrete = T)+
+  ggtitle("TNFRSF8 exp distribution in NSCLC by cluster")+
+  xlab("") + ylab("Log2(Norm.TPM)")+
+  theme_bw()+
+  theme(axis.text.x=element_text(angle=45,hjust=1)) #Note that theme_bw will override theme. Order here is important
+
+
+
+
+#EBI3
+
+v.crc.ebi3 <- 
+  ggplot(df.crc.vplot, aes(x=tissue, y=EBI3, fill=tissue)) + 
+  geom_violin(trim=FALSE)+
+  scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9"))+
+  ggtitle("EBI3 exp distribution in CRC by tissue")+
+  xlab("") + ylab("Log2(Norm.TPM)")+
+  theme_bw()
+
+
+#This plot doesnt need to re-order. Alphabetical order is good enough
+v.crc.ebi3.bycluster <- 
+ggplot(crc.cd4, aes(x=Cluster, y=EBI3, fill=Cluster))+
+  geom_violin(trim=FALSE)+
+  scale_fill_viridis(discrete = T)+
+  ggtitle("EBI3 exp distribution in CRC by cluster")+
+  xlab("") + ylab("Log2(Norm.TPM)")+
+  theme_bw()+
+  theme(axis.text.x=element_text(angle=45,hjust=1)) #Note that theme_bw will override theme. Order here is important
+
+
+v.nsclc.ebi3 <- 
+  ggplot(df.nsclc.vplot, aes(x=tissue, y=EBI3, fill=tissue)) + 
+  geom_violin(trim=FALSE)+
+  scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9"))+
+  ggtitle("EBI3 exp distribution in NSCLC by tissue")+
+  xlab("") + ylab("Log2(Norm.TPM)")+
+  theme_bw()
+
+
+v.nsclc.ebi3.bycluster <- 
+ggplot(nsclc.cd4, aes(x=majorCluster, y=EBI3, fill=majorCluster))+
+  geom_violin(trim=FALSE)+
+  scale_fill_viridis(discrete = T)+
+  ggtitle("EBI3 exp distribution in NSCLC by cluster")+
+  xlab("") + ylab("Log2(Norm.TPM)")+
+  theme_bw()+
+  theme(axis.text.x=element_text(angle=45,hjust=1)) #Note that theme_bw will override theme. Order here is important
+
+
+
+#CCL22
+
+
+v.crc.ccl22 <- 
+  ggplot(df.crc.vplot, aes(x=tissue, y=CCL22, fill=tissue)) + 
+  geom_violin(trim=FALSE)+
+  scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9"))+
+  ggtitle("CCL22 exp distribution in CRC by tissue")+
+  xlab("") + ylab("Log2(Norm.TPM)")+
+  theme_bw()
+
+
+#This plot doesnt need to re-order. Alphabetical order is good enough
+v.crc.ccl22.bycluster <- 
+ggplot(crc.cd4, aes(x=Cluster, y=CCL22, fill=Cluster))+
+  geom_violin(trim=FALSE)+
+  scale_fill_viridis(discrete = T)+
+  ggtitle("CCL22 exp distribution in CRC by cluster")+
+  xlab("") + ylab("Log2(Norm.TPM)")+
+  theme_bw()+
+  theme(axis.text.x=element_text(angle=45,hjust=1)) #Note that theme_bw will override theme. Order here is important
+
+
+v.nsclc.ccl22 <- 
+  ggplot(df.nsclc.vplot, aes(x=tissue, y=CCL22, fill=tissue)) + 
+  geom_violin(trim=FALSE)+
+  scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9"))+
+  ggtitle("CCL22 exp distribution in NSCLC by tissue")+
+  xlab("") + ylab("Log2(Norm.TPM)")+
+  theme_bw()
+
+
+v.nsclc.ccl22.bycluster <- 
+ggplot(nsclc.cd4, aes(x=majorCluster, y=CCL22, fill=majorCluster))+
+  geom_violin(trim=FALSE)+
+  scale_fill_viridis(discrete = T)+
+  ggtitle("CCL22 exp distribution in NSCLC by cluster")+
+  xlab("") + ylab("Log2(Norm.TPM)")+
+  theme_bw()+
+  theme(axis.text.x=element_text(angle=45,hjust=1)) #Note that theme_bw will override theme. Order here is important
+
+
+```
+
+
+```{r, echo=FALSE,results='hide',fig.keep='all'}
+
+#Final Plots summary
+
+plot(pie.crc)
+plot(pie.nsclc)
+plot(bar.df.crc.all)
+plot(bar.df.nsclc.all)
+plot(v.crc.ccr8)
+plot(v.crc.ccr8.bycluster)
+plot(v.nsclc.ccr8)
+plot(v.nsclc.ccr8.bycluster)
+
+
+
+#Treg_genes
+
+#CTLA4
+plot(v.crc.ctla4)
+plot(v.crc.ctla4.bycluster)
+plot(v.nsclc.ctla4)
+plot(v.nsclc.ctla4.bycluster)
+
+#FOXP3
+plot(v.crc.foxp3)
+plot(v.crc.foxp3.bycluster)
+plot(v.nsclc.foxp3)
+plot(v.nsclc.foxp3.bycluster)
+
+#IL2RA (CD25)
+plot(v.crc.il2ra)
+plot(v.crc.il2ra.bycluster)
+plot(v.nsclc.il2ra)
+plot(v.nsclc.il2ra.bycluster)
+
+
+#Volcano_Hits
+
+#TNFRSF9 (4-1BB)
+plot(v.crc.tnfrsf9)
+plot(v.crc.tnfrsf9.bycluster)
+plot(v.nsclc.tnfrsf9)
+plot(v.nsclc.tnfrsf9.bycluster)
+
+
+#TNFRSF8
+plot(v.crc.tnfrsf8)
+plot(v.crc.tnfrsf8.bycluster)
+plot(v.nsclc.tnfrsf8)
+plot(v.nsclc.tnfrsf8.bycluster)
+
+#EBI3
+plot(v.crc.ebi3)
+plot(v.crc.ebi3.bycluster)
+plot(v.nsclc.ebi3)
+plot(v.nsclc.ebi3.bycluster)
+
+
+#CCL22
+plot(v.crc.ccl22)
+plot(v.crc.ccl22.bycluster)
+plot(v.nsclc.ccl22)
+plot(v.nsclc.ccl22.bycluster)
+
+```
+
+
+
+
+## cowplot to generate final figure
+
+```{r cowplot}
+#cowplot to show all results side-by-side
+#https://stackoverflow.com/questions/1249548/side-by-side-plots-with-ggplot2
+
+library(cowplot)
+
+#Generate a combined plot
+p1<-
+  plot_grid(pie.crc, pie.nsclc, bar.df.crc.all, bar.df.nsclc.all, v.crc.ccr8, v.nsclc.ccr8, v.crc.ccr8.bycluster, v.nsclc.ccr8.bycluster, ncol=2, labels = "AUTO")
+
+plot(p1)
+
+ggsave("GSE99254&GSE108989_CCR8_plots_combined.pdf", p1, width = 12, height = 14)
+
+
+
+
+p2<-
+  plot_grid(v.crc.ctla4, v.nsclc.ctla4, v.crc.ctla4.bycluster, v.nsclc.ctla4.bycluster, v.crc.foxp3, v.nsclc.foxp3, v.crc.foxp3.bycluster, v.nsclc.foxp3.bycluster, v.crc.il2ra, v.nsclc.il2ra, v.crc.il2ra.bycluster, v.nsclc.il2ra.bycluster,ncol=2, labels = "AUTO")
+
+plot(p2)
+
+ggsave("GSE99254&GSE108989_Treg_Genes_of_Interests.pdf", p2, width = 12, height = 21)
+
+
+
+p3<-
+  plot_grid(v.crc.tnfrsf9, v.nsclc.tnfrsf9, v.crc.tnfrsf9.bycluster, v.nsclc.tnfrsf9.bycluster, v.crc.tnfrsf8, v.nsclc.tnfrsf8, v.crc.tnfrsf8.bycluster, v.nsclc.tnfrsf8.bycluster, v.crc.ebi3, v.nsclc.ebi3, v.crc.ebi3.bycluster, v.nsclc.ebi3.bycluster, v.crc.ccl22, v.nsclc.ccl22, v.crc.ccl22.bycluster, v.nsclc.ccl22.bycluster, ncol=2, labels = "AUTO")
+
+plot(p3)
+
+ggsave("GSE99254&GSE108989_Other_Genes_of_Interests.pdf", p3, width = 12, height = 28)
+
+
+```
+
+
+
+
+
+```{r Tutorial, results="hide"}
+
+#Tutorial note.
+# Filter multiple using %in%: https://stackoverflow.com/questions/25647470/filter-multiple-values-on-a-string-column-in-dplyr
+
+categories <- c("PTR", "NTR", "TTR")
+crc.plot <- crc %>%
+  select(SampleType, CCR8) %>%
+  filter(SampleType %in% categories) #1042 obs to 889 obs
+
+head(crc.plot)
+
+v.crc <- ggplot(crc.plot, aes(x=SampleType, y=CCR8, color=SampleType)) + 
+  geom_violin(trim=FALSE)+
+  scale_color_manual(values=c("#999999", "#E69F00", "#56B4E9"))+
+  ggtitle("CCR8 expression in CRC")+
+  theme_bw()
+
+
+
+
+```
+
+

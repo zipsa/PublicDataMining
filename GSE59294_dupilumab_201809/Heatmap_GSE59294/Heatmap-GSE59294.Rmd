@@ -1,0 +1,113 @@
+---
+title: "Heatmap-GSE59294"
+author: "Hyun Yong Jin"
+date: "September 12, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Heatmap analysis of GSE59294
+### Idea: 1. Unsupervised clustering of DEG, 2. list of the most differentially expressed genes from leisonal dataset only
+
+```{r GSE59294-all, fig.height=14}
+dat <- read.csv("~/GSE59294-heatmap-all.csv", header=T)
+summary(dat)
+#Import data as data.frame
+
+
+rnames <- dat[, 2] #To designate second column (symbol) as rownames
+mat_data <- data.matrix(dat[,4:ncol(dat)]) #Extract column with values and assigne the data as "metrix"
+rownames(mat_data) <-rnames 
+class(mat_data) #Must be metrix
+
+library(RColorBrewer)
+my_palette <- colorRampPalette(c("blue", "white", "red"))(n = 299)
+
+library(genefilter)
+rv <- rowVars(mat_data)
+idx <- order(-rv)[1:80] #Take out the top 100 (-rv) 
+
+
+library(gplots)  
+
+
+heatmap.2(mat_data[idx,],
+main = "GSE59294-all",
+xlab = "Patients&Treatment",
+ylab = "Top80 variable genes",
+density.info="none",  # turns off density plot inside color legend
+trace="none",         # turns off trace lines inside the heat map
+colsep=0:ncol(dat),
+rowsep=0:80,
+sepcolor=c("black"),
+sepwidth=c(0.03, 0.03),
+cexRow=1,
+cexCol=1,
+keysize = 1.2,        # to make it appear color key (should be shown automatically but sometimes disappear)
+margins =c(20,8),     # widens margins around plot
+col=my_palette)      # only draw a column dendrogram
+
+
+
+```
+
+
+
+
+```{r GSE59294-Lesional, fig.height=14}
+dat2 <- read.csv("~/GSE59294-heatmap-lesional.csv", header=T)
+summary(dat2)
+#Import data as data.frame
+
+
+rnames <- dat2[, 2] #To designate second column (symbol) as rownames
+mat_data <- data.matrix(dat2[,4:ncol(dat2)]) #Extract column with values and assigne the data as "metrix"
+rownames(mat_data) <-rnames 
+class(mat_data) #Must be metrix
+
+library(RColorBrewer)
+my_palette <- colorRampPalette(c("blue", "white", "red"))(n = 299)
+
+library(genefilter)
+rv <- rowVars(mat_data)
+idx <- order(-rv)[1:80] #Take out the top 100 (-rv) 
+
+
+library(gplots)  
+
+heatmap.lesional <- 
+heatmap.2(mat_data[idx,],
+main = "GSE59294-lesional",
+xlab = "Patients&Treatment",
+ylab = "Top80 variable genes",
+density.info="none",  # turns off density plot inside color legend
+trace="none",         # turns off trace lines inside the heat map
+colsep=0:ncol(dat2),
+rowsep=0:80,
+sepcolor=c("black"),
+sepwidth=c(0.03, 0.03),
+cexRow=1,
+cexCol=1,
+keysize = 1.2,        # to make it appear color key (should be shown automatically but sometimes disappear)
+margins =c(20,8),     # widens margins around plot
+col=my_palette)       # use on color palette defined earlier 
+
+
+#dendrogram="col"      # only draw a column dendrogram
+
+
+
+```
+
+
+
+
+
+
+
+
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

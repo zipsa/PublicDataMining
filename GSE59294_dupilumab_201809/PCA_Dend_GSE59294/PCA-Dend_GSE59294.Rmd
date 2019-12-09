@@ -1,0 +1,117 @@
+---
+title: "PCA & Dendrogram -GSE59284"
+author: "Hyun Yong Jin"
+date: "September 24, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## PCA analysis of GSE59284
+## Reference <https://cran.r-project.org/web/packages/ggfortify/vignettes/plot_pca.html>
+### Started from log2 transforemd /RMA normalized data.frame, treat each probes (not genes) as individual data point. Categorize each CEL files based on two critereia - treatment vs. non-treatment and lesional vs. non leasional.
+### Library used for PCA calculation - library(ggfortify)
+
+
+```{r}
+
+
+a <- read.csv("~/GSE59294-category.csv", header = T) #by default, row.names=NULL is included. duplicated header has assigned with each numbers which we dont want. 
+mat.dat <-data.matrix(a[,5:ncol(a)]) 
+str(mat.dat) #Make sure 40 samples
+
+
+t.mat.dat <-t(mat.dat) #Transposed matrix #Row names are now unique GSM#. After converting to data.frame, need to add a new colume with identifier and cateory.
+
+#Assigning a new row (category) for subsetting
+
+b <- as.data.frame(t.mat.dat) #Converting back to data.frame. 
+c<- read.csv("~/GSE59294-GSE-patients.csv", header = T)
+
+d <- cbind(b, c) #Header will be preserved. The bound columnes will be located at the very right. 
+
+#Sanity test
+d[,54676:54678] #Combined coloums
+d[,1:3] #Data is ready!
+
+
+
+#Drawing PCA plot
+library(ggfortify)
+df <- d[c(1:54675)] #Select columns with numeric values for calculation. 
+
+autoplot(prcomp(df), data=d, colour='category', label=TRUE) + theme (panel.background = element_rect(fill='white', colour='black'))#Subsetting is based on the column info under 'cetegory and labeling is based on rownames. 
+
+
+
+```
+
+
+
+```{r}
+#hClustering analysis from the transposed matrix
+clusters <- hclust(dist(df), method="complete") 
+#Default it complete-linkage. This calculates the maximum distance between clusters before merging.
+plot(clusters)
+
+
+#Advanced vidualisation
+library(dendextend)
+dend <- as.dendrogram(clusters)
+dend <- color_branches(dend, k=4) #Visualize data assuming there are 4 clusters.
+
+#Change Labeling based on added column. combine phenotype and GSM.
+labels(dend) <- paste(as.character(d[,54678])[order.dendrogram(dend)],"(",labels(dend),")", sep = "") 
+dend <- hang.dendrogram(dend,hang_height=0.1) # Hang the dendrogrm
+
+
+plot(dend, 
+     main= "GSE59294-Dend-Complete-linkage",
+     horiz = TRUE)
+
+
+
+
+
+
+
+
+clusters.cen <- hclust(dist(df), method='centroid') #Centroid-linkage
+plot(clusters.cen)
+# finds centroid of cluster 1 and centroid of cluster 2, and then calculates the distance between the two before merging.
+
+dend.cen <- as.dendrogram(clusters.cen)
+dend.cen <- color_branches(dend.cen, k=4) #Visualize data assuming there are 4 clusters.
+
+#Change Labeling based on added column. combine phenotype and GSM.
+labels(dend.cen) <- paste(as.character(d[,54678])[order.dendrogram(dend.cen)],"(",labels(dend.cen),")", sep = "") 
+dend.cen <- hang.dendrogram(dend.cen,hang_height=0.1) # Hang the dendrogrm
+
+plot(dend.cen, 
+     main= "GSE59294-Dend-Centeroid-linkage",
+     horiz = TRUE)
+
+
+
+
+clusters.sin <- hclust(dist(df), method='single') #Single-linkage
+plot(clusters.sin)
+# Single linkage calculates the minimum distance between the clusters before merging. This linkage may be used to detect high values in your dataset which may be outliers as they will be merged at the end.
+
+dend.sin <- as.dendrogram(clusters.sin)
+dend.sin <- color_branches(dend.sin, k=4) #Visualize data assuming there are 4 clusters.
+
+#Change Labeling based on added column. combine phenotype and GSM.
+labels(dend.sin) <- paste(as.character(d[,54678])[order.dendrogram(dend.sin)],"(",labels(dend.sin),")", sep = "") 
+dend.sin <- hang.dendrogram(dend.sin,hang_height=0.1) # Hang the dendrogrm
+
+plot(dend.sin, 
+     main= "GSE59294-Dend-Single-linkage",
+     horiz = TRUE)
+
+
+```
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

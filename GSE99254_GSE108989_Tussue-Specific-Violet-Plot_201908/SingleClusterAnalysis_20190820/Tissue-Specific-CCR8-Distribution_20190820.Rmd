@@ -1,0 +1,191 @@
+---
+title: "Tissue-specific CCR8 distribution"
+author: "Hyun Yong Jin"
+date: "August 20, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Tissue specific CCR8 expression distribution profile from GSE108989(CRC) and GSE99254
+##Start from merged files from previous GSE108989 and GSE99254 analysis.
+##Each file contains only specific population (#CD4_C12-CCR8 cluster from GSE108989 or #CD4_C9-CTLA4 from GSE99254) of exhausted CD4 T cell population from each dataset.
+
+
+## dintinc of tidyverse to show the unique list in the column
+## violin plot
+## cowplot
+
+
+```{r}
+library(tidyverse)
+
+crc<- read.csv("merged_ccr8_GSE108989_CRC.csv", header=T) #CD4_C12-CCR8 cluster from GSE108989
+nsclc<- read.csv("merged_ctla4_GSE99254_NSCLC.csv", header=T) #CD4_C9-CTLA4 from GSE99254
+
+#Sanity test
+dim(crc)
+dim(nsclc)
+
+crc[c(1:5), c(1:12)]
+nsclc[c(1:5), c(1:12)]
+
+
+#Analysis of CRC
+
+distinct(crc, SampleType) #Show unique values (all clusters)
+
+#PTC(CD8+ T cells from peripheral blood), NTC(CD8+T cells from adjacent normal colonrectal tissues) ,TTC (CD8+ T cells from tumor), 
+#PTH(CD3+, CD4+ and CD25- T cells from peripheral blood),NTH(CD3+, CD4+ and CD25- T cells from adjacent normal colonrectal tissues),TTH(CD3+, CD4+ and CD25- T cells from tumor), 
+#PTR(CD3+, CD4+ and CD25high T cells from peripheral blood), NTR(CD3+, CD4+ and CD25high Tcells from adjacent normal colonrectal tissues), TTR(CD3+, CD4+ and CD25high T cells from tumor), 
+#PTY(CD3+, CD4+ and CD25mediate T cells from peripheral blood), NTY(CD3+, CD4+ and CD25mediate T cells from adjacent normal colonrectal tissues), TTY(CD3+, CD4+ and CD25medate T cells from tumor), 
+#PP7(CD3+, CD4+ T cells from peripheral blood), NP7(CD3+, CD4+ T cells from adjacent normal colonrectal tissues), TP7(CD3+, CD4+ T cells from tumor).
+#I will focus on PTR, NTR and TTR population. 
+
+crc.p <- crc %>%
+  select(SampleType, CCR8) %>%
+  filter(SampleType == "PTR") #2 cells
+
+crc.n <- crc %>%
+  select(SampleType, CCR8) %>%
+  filter(SampleType == "NTR") #42 cells
+
+crc.t <- crc %>%
+  select(SampleType, CCR8) %>%
+  filter(SampleType == "TTR") #845 cells
+
+
+
+
+
+#Analysis of NSCLC
+
+distinct(nsclc, tissueType) #Show unique values (all clusters)
+
+nsclc.p <- nsclc %>%
+  select(tissueType, CCR8) %>%
+  filter(tissueType == "Peripheral blood (P)") #12 cells
+
+nsclc.n <- nsclc %>%
+  select(tissueType, CCR8) %>%
+  filter(tissueType == "Normal (N)") #59 cells
+
+nsclc.t <- nsclc %>%
+  select(tissueType, CCR8) %>%
+  filter(tissueType == "Tumor-infiltrating (T)") #868 cells
+
+```
+
+
+
+## Generating graph
+### Graph1: cell number incidence of of n, p and t population
+### Graph2: violin plot of CCR8, each populations. 
+
+
+
+```{r}
+
+library(ggplot2)
+library(scales) # to format the labels in percent
+library(ggrepel)
+library(cowplot)
+
+# Graph1: cell number incidence of of n, p and t population
+
+df.crc <-data.frame(
+  group = c("Peripheral", "Normal", "Tumor"),
+  value = c(nrow(crc.p), nrow(crc.n), nrow(crc.t))
+)
+
+pie.crc <- ggplot(df.crc, aes(x="", y=value, fill=group))+
+  geom_bar(width =1, stat = "identity")+
+  coord_polar("y", start=0)+
+  scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9"))+
+  ggtitle("Tissue Origin of \n CD4_C12-CCR8 cluster in CRC") +
+  xlab("# of Cells") + ylab("")
+
+plot(pie.crc)
+#Save as 6x6
+
+df.nsclc <-data.frame(
+  group = c("Peripheral", "Normal", "Tumor"),
+  value = c(nrow(nsclc.p), nrow(nsclc.n), nrow(nsclc.t))
+)
+
+pie.nsclc <- ggplot(df.nsclc, aes(x="", y=value, fill=group))+
+  geom_bar(width =1, stat = "identity")+
+  coord_polar("y", start=0)+
+  scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9"))+
+  ggtitle("Tissue Origin of \n CD4_C9-CTLA4 in NSCLC") +
+  xlab("# of Cells") + ylab("")
+
+plot(pie.nsclc)
+
+
+#Graph2: violin plot of CCR8, each populations. This will show cut-off values of CCR8 positive and negative.
+#Ideally I want to generate CCR8 distribution from three different tissue in one figure using single script. 
+
+
+# Filter multiple: https://stackoverflow.com/questions/25647470/filter-multiple-values-on-a-string-column-in-dplyr
+
+categories <- c("PTR", "NTR", "TTR")
+crc.plot <- crc %>%
+  select(SampleType, CCR8) %>%
+  filter(SampleType %in% categories) #1042 obs to 889 obs
+
+head(crc.plot)
+
+v.crc <- ggplot(crc.plot, aes(x=SampleType, y=CCR8, color=SampleType)) + 
+  geom_violin(trim=FALSE)+
+  geom_jitter(shape=16, position=position_jitter(0.2))+
+  scale_color_manual(values=c("#999999", "#E69F00", "#56B4E9"))+
+  ggtitle("CCR8 expression of \n CD4_C12-CCR8 cluster in CRC")
+
+
+plot(v.crc)
+#Save as 6x4
+
+
+
+categories2 <- c("Peripheral blood (P)", "Normal (N)", "Tumor-infiltrating (T)")
+nsclc.plot <- nsclc %>%
+  select(tissueType, CCR8) %>%
+  filter(tissueType %in% categories2) #939 obs to 939 obs. No other tissue types were found
+
+head(nsclc.plot)
+
+v.nsclc <- ggplot(nsclc.plot, aes(x=tissueType, y=CCR8, color=tissueType)) + 
+  geom_violin(trim=FALSE)+
+  geom_jitter(shape=16, position=position_jitter(0.2))+
+  scale_color_manual(values=c("#999999", "#E69F00", "#56B4E9"))+
+  ggtitle("CCR8 expression of \n CD4_C9-CTLA4 in NSCLC")
+
+
+plot(v.nsclc)
+
+
+
+
+```
+
+
+## cowplot to generate final figure
+
+```{r cowplot}
+#cowplot to show all results side-by-side
+#https://stackoverflow.com/questions/1249548/side-by-side-plots-with-ggplot2
+
+library(cowplot)
+
+p<-plot_grid(pie.crc, pie.nsclc, v.crc, v.nsclc, labels = "AUTO")
+ggsave("all_plots_combined.pdf", p)
+
+plot(p)
+
+
+```
+
+

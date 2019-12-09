@@ -1,0 +1,143 @@
+---
+title: "Zemin_NSCLC_GSE99254_visualization"
+author: "Hyun Yong Jin"
+date: "August 16, 2019"
+output: html_document
+---
+
+```{r setup}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Visualization of from stat_all table
+
+```{r read stat_all}
+library(ggplot2)
+library(ggrepel)
+
+a <- read.csv("GSE99254_stat_all.csv", header=T, stringsAsFactors = FALSE)
+
+a$Significant <- ifelse((a$FC>18&a$p.value<0.01)|a$p.value<1/10^15, "Significant", "Not Sig")
+    
+pl<-ggplot(a, aes(x = log2(FC), y = -log10(p.value))) +
+  geom_point(aes(color = Significant)) +
+  scale_color_manual(values = c("grey", "red")) +
+  theme_bw(base_size = 12) + theme(legend.position = "bottom") +
+  geom_vline(xintercept=0, linetype="dashed", color = "blue", size=1)+
+  geom_vline(xintercept=log2(10), linetype="dashed", color = "blue")+
+  geom_vline(xintercept=log2(0.1), linetype="dashed", color = "blue")+
+  geom_hline(yintercept=-log10(1/10^5), linetype="dashed", color = "blue")+
+  geom_text_repel(
+    data = subset(a, (FC>18&p.value<0.01)|p.value<1/10^15),
+    aes(label = gene_name),
+    size = 5,
+    box.padding = unit(0.35, "lines"),
+    point.padding = unit(0.3, "lines")
+  )
+
+
+plot(pl)
+
+#Want to add SD information on top of it. 
+#But P.value actually contains this SD informaiton, so may not be necessary. 
+
+#Next: Generate the one without CCR8
+
+library(tidyverse)
+
+b <- read.csv("GSE99254_stat_all.csv", header=T, stringsAsFactors = FALSE)
+b<- b %>% filter(gene_name != "CCR8") #Remove row with CCR8
+dim(b)
+dim(a)
+b[c(1:10), c(1:10)]
+
+
+#This still contains CCR8 somehow.
+
+b$Significant <- ifelse((b$FC>18&b$p.value<0.01)|b$p.value<1/10^15, "Significant", "Not Sig")
+
+plb<-ggplot(b, aes(x = log2(FC), y = -log10(p.value))) +
+  geom_point(aes(color = Significant)) +
+  scale_color_manual(values = c("grey", "red")) +
+  theme_bw(base_size = 12) + theme(legend.position = "bottom") +
+  geom_vline(xintercept=0, linetype="dashed", color = "blue", size=1)+
+  geom_vline(xintercept=log2(10), linetype="dashed", color = "blue")+
+  geom_vline(xintercept=log2(0.1), linetype="dashed", color = "blue")+
+  geom_hline(yintercept=-log10(1/10^5), linetype="dashed", color = "blue")+
+  geom_text_repel(
+    data = subset(b, (FC>18&p.value<0.01)|p.value<1/10^15),
+    aes(label = gene_name),
+    size = 5,
+    box.padding = unit(0.35, "lines"),
+    point.padding = unit(0.3, "lines")
+  )
+
+plot(plb)
+
+```
+
+```{r function}
+#Generate function to simplify this. 
+#This function called "volcano" takes filename as an arguement.
+
+library(ggplot2)
+library(ggrepel)
+library(tidyverse)
+
+volcano.all <- function(filename){
+a <- read.csv(file = filename, header=T, stringsAsFactors = FALSE)
+a$Significant <- ifelse((a$FC>18&a$p.value<0.01)|a$p.value<1/10^15, "Significant", "Not Sig")
+pl<-ggplot(a, aes(x = log2(FC), y = -log10(p.value))) +
+  geom_point(aes(color = Significant)) +
+  scale_color_manual(values = c("grey", "red")) +
+  theme_bw(base_size = 12) + theme(legend.position = "bottom") +
+  geom_vline(xintercept=0, linetype="dashed", color = "blue", size=1)+
+  geom_vline(xintercept=log2(10), linetype="dashed", color = "blue")+
+  geom_vline(xintercept=log2(0.1), linetype="dashed", color = "blue")+
+  geom_hline(yintercept=-log10(1/10^5), linetype="dashed", color = "blue")+
+  geom_text_repel(
+    data = subset(a, (FC>18&p.value<0.01)|p.value<1/10^15),
+    aes(label = gene_name),
+    size = 5,
+    box.padding = unit(0.35, "lines"),
+    point.padding = unit(0.3, "lines")
+  )
+plot(pl)
+}
+
+volcano.all("GSE99254_stat_all.csv")
+
+
+volcano.noccr8 <- function(filename){
+a <- read.csv(file = filename, header=T, stringsAsFactors = FALSE)
+a <- a %>% filter(gene_name != "CCR8") #Remove row with CCR8. Only addition
+a$Significant <- ifelse((a$FC>18&a$p.value<0.01)|a$p.value<1/10^15, "Significant", "Not Sig")
+pl<-ggplot(a, aes(x = log2(FC), y = -log10(p.value))) +
+  geom_point(aes(color = Significant)) +
+  scale_color_manual(values = c("grey", "red")) +
+  theme_bw(base_size = 12) + theme(legend.position = "bottom") +
+  geom_vline(xintercept=0, linetype="dashed", color = "blue", size=1)+
+  geom_vline(xintercept=log2(10), linetype="dashed", color = "blue")+
+  geom_vline(xintercept=log2(0.1), linetype="dashed", color = "blue")+
+  geom_hline(yintercept=-log10(1/10^5), linetype="dashed", color = "blue")+
+  geom_text_repel(
+    data = subset(a, (FC>18&p.value<0.01)|p.value<1/10^15),
+    aes(label = gene_name),
+    size = 5,
+    box.padding = unit(0.35, "lines"),
+    point.padding = unit(0.3, "lines")
+  )
+plot(pl)
+}
+
+
+volcano.noccr8("GSE99254_stat_all.csv")
+
+
+#Save as 8x8
+
+
+
+
+```
+
