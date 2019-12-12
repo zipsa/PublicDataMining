@@ -1,0 +1,53 @@
+---
+title: "LollipopPlot_20180904"
+author: "Hyun Yong Jin"
+date: "September 4, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Align and highlight the genes of interests based on F factor calculated
+
+
+```{r lollipop plot}
+#Generating lollipop plot as an alternative to bar graph, using 274 significant genes identified from C4-CD8-LAYN genes
+
+setwd("~/") #Somehow you should directly 
+
+c4 <- read.csv("lollipop-plot.csv", header=T) 
+#Note: highlight categories were categorized based on a, b and c. If assigned by numbers, ggplot2 will recognize the category as continuous variables. 
+
+
+library("ggpubr")
+
+#Default
+ggdotchart(c4, x = "GeneSymbol", y = "F",
+           color = "highlight",                          # Color by groups
+           palette = c("#00AFBB", "#E7B800", "#FC4E07"), # Custom color palette
+           sorting = "ascending",                        # Sort value in descending order
+           add = "segments",                             # Add segments from y = 0 to dots
+           ggtheme = theme_pubr()                        # ggplot2 theme
+           )
+
+
+#Modification
+ggdotchart(c4, x = "GeneSymbol", y = "F",
+           color = "highlight",                          # Color by groups
+           palette = c("#00AFBB", "#E7B800", "#FC4E07"),# Custom color palette
+           dot.size = 2,
+           sorting = "descending",                        # Sort value in descending order
+           add = "segments",                             # Add segments from y = 0 to dots
+           ggtheme = theme_pubr()                        # ggplot2 theme
+           )
+
+
+
+
+
+```
+
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

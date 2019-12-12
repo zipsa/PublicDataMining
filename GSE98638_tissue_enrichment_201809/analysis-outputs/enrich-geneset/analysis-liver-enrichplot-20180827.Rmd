@@ -1,0 +1,118 @@
+---
+title: "analysis-liver"
+author: "Hyun Yong Jin"
+date: "August 28, 2018"
+output: html_document
+---
+
+#Disease Ontology
+
+```{r, echo=FALSE}
+
+setwd("~/") #Set Documents folder as destination
+
+library(DOSE) #for GSEA analysis
+library(enrichplot) # for plotting
+
+
+#read data as dataframe
+c4 <- read.csv("c4-cd8-layn-entrezid.csv", header=FALSE) 
+
+#Convert the first colume into charactor
+
+test <- as.vector(c4[,'V1']) #as integer(it is not charactor but still works)
+
+
+#DisGeNet enrichment
+edo <- enrichDGN(test) #using vector of entrez gene id. It is DOSE function. Enrichment analysis based on the DisGeNeT.
+
+#Visualization
+dotplot(edo, showCategory=30)  #dotplot is from enrichPlot package
+
+upsetplot(edo)
+emapplot(edo)
+
+head(edo)
+write.csv(edo, "C:/Users/hjin02/Documents/summary-DGN.csv") #Directory setting has an issue. Set up destination manually. "Summary function" is not necessary. It will automatically convert the data
+
+
+edox <- setReadable(edo, 'org.Hs.eg.db', 'ENTREZID')
+head(edox)
+write.csv(edox, "C:/Users/hjin02/Documents/summary-DGN-annotation.csv")
+#Results were annotated with gene name!
+
+
+
+#Repeat with DO term
+edo2 <- enrichDO(test)
+dotplot(edo2, showCategory=30) 
+upsetplot(edo2)
+emapplot(edo2)
+edo2x <- setReadable(edo2, 'org.Hs.eg.db', 'ENTREZID')
+write.csv(edo2x, "C:/Users/hjin02/Documents/summary-DGN-annotation.csv")
+
+
+
+#Repeat with 
+edo3 <- enrichNCG(test)
+dotplot(edo3, showCategory=30) 
+
+
+
+
+#I need to define data(geneLis), which contains EntrezID and fold change. from edox, fold-change is start to be considered
+
+#edox <- setReadable(edo, 'org.Hs.eg.db', 'ENTREZID')
+#cnetplot(edox, foldChange=geneList)
+#cnetplot(edox, foldChange=geneList, circular = TRUE, colorEdge = TRUE)
+#heatplot(edox, foldChange=geneList)
+
+
+
+
+```
+
+
+
+
+#GO ontology
+```{r pressure, echo=FALSE}
+
+library(clusterProfiler)
+
+#GO over-representatino test - it has three hierarchy
+ego.cc <- enrichGO(test, OrgDb = org.Hs.eg.db, ont = "CC") #Cellular component
+ego.mf <- enrichGO(test, OrgDb = org.Hs.eg.db, ont = "MF") #molecular function
+ego.bp <- enrichGO(test, OrgDb = org.Hs.eg.db, ont = "BP") #biological process
+
+dotplot(ego.cc, showCategory=30) 
+dotplot(ego.mf, showCategory=30) 
+dotplot(ego.bp, showCategory=30) 
+
+
+
+
+
+ego.ccx <- setReadable(ego.cc, 'org.Hs.eg.db', 'ENTREZID')
+ego.mfx <- setReadable(ego.mf, 'org.Hs.eg.db', 'ENTREZID')
+ego.bpx <- setReadable(ego.bp, 'org.Hs.eg.db', 'ENTREZID')
+
+write.csv(ego.ccx, "C:/Users/hjin02/Documents/summary-GO-cellular-component.csv")
+write.csv(ego.mfx, "C:/Users/hjin02/Documents/summary-GO-molecular-function.csv")
+write.csv(ego.bpx, "C:/Users/hjin02/Documents/summary-GO-biological-process.csv")
+
+
+
+
+#KEGG over-representation test
+ekk <- enrichKEGG(test, organism = 'hsa')
+ekkx <- setReadable(ekk, 'org.Hs.eg.db', 'ENTREZID')
+write.csv(ekkx, "C:/Users/hjin02/Documents/summary-KEGG-annotation.csv")
+
+
+
+
+```
+
+
+

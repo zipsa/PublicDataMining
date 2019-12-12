@@ -1,0 +1,80 @@
+---
+title: "Functional Enrichment - DOSE and enrichplot"
+author: "Hyun Yong Jin"
+date: "August 28, 2018"
+output: html_document
+---
+
+
+```{install}
+
+#Install Method 1
+
+#source("https://bioconductor.org/biocLite.R")
+#biocLite("DOSE")
+
+#source("https://bioconductor.org/biocLite.R")
+#biocLite("org.Hs.eg.db")
+
+
+
+#Install Method 2. direct installation from github
+#Author(GCY) mentioned new feature will not push to Bioconductor release version. please use the github version
+#https://github.com/GuangchuangYu/DOSE
+
+#install.packages("githubinstall")
+#library(githubinstall)
+#githubinstall("DOSE") #direct install from github
+#githubinstall("enrichplot") #direct install from github
+
+
+```
+
+```{r functional-ehrichment}
+#Using Bioconductor packages developed by Guangchuna Yu
+
+#Over Representation
+
+library(DOSE) #for GSEA analysis
+library(enrichplot) # for plotting
+
+data(geneList)
+de <- names(geneList)[abs(geneList) > 2]
+
+edo <- enrichDGN(de) #using vector of entrez gene id
+
+
+
+#Gene Set Enrichment Analysis
+
+edo2 <- gseNCG(geneList, nPerm=10000)
+
+```
+
+## Visualisation
+
+
+```{r pressure, echo=FALSE, fig.height = 5, fig.width = 7}
+
+#Require "both"" DOSE and enrichplot
+
+barplot(edo, showCategory=20)
+
+p1 <- dotplot(edo, showCategory=30) + ggtitle("dotplot for ORA")
+p2 <- dotplot(edo2, showCategory=30) + ggtitle("dotplot for GSEA")
+#plot_grid(p1, p2, nrow=2, align="v") #plot_grid to organize figures
+p1
+p2
+
+#Plotting based on genome-side human annotation database org.Hs.eg.db
+edox <- setReadable(edo, 'org.Hs.eg.db', 'ENTREZID')
+cnetplot(edox, foldChange=geneList)
+
+
+cnetplot(edox, foldChange=geneList, circular = TRUE, colorEdge = TRUE)
+
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
