@@ -1,0 +1,13 @@
+
+1. all_data (It contains raw RPKM values and all stats I calculated)
+2. significant_2fold_only (This contains genes that are up or down more than 2-fod “and” p value <0.01,
+worthwhile to check them out)
+3. manually_selected_genes (This contains our genes of interest and their genes including Tcf7, Bcl2 and zeb2.
+Note that result value here was recapitulated in the paper)
+
+Comments:
+1. Notch pathways seems to be normal.
+2. IL7R was suppressed in KO but Cxcr5 and Klrg1 is upregulated significantly.
+3. Myb is cMyb. This was unexpectedly overexpressed in Myb KO cells. It seems like this was due to the original
+targeting vector to generate Myb fl allele. It targets exon II of Myb but spare other exons. Therefore, the
+detected signals likely from the transcript that does not produce functional Myb protein.
