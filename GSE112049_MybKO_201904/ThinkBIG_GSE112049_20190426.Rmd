@@ -1,0 +1,136 @@
+---
+title: "ThinkBIG session GSE112049"
+author: "Hyun Yong Jin"
+date: "April 26, 2019"
+output: html_document
+---
+
+```{r GSE112049}
+#Reference: Gautam et al., Nature Immunology 2019
+#RNAseq raw data linked to the paper: GSE112049
+#Purpose: look up Notch target genes in the dataset (Apr 26, 2019)
+#Codes were modified for ThinkBig presentation purpose
+
+#Before start, let's clear up all objects from global environment. 
+rm(list = ls())
+
+#Install GeoQuery
+R.Version() #current version is 3.5.1, 2018-07-02
+#install.packages("GEOquery") 
+#Usually this should work, but GEOquery is not available for example, R version 3.5.1
+
+#Install GEOquery regardless of current R version.
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install("GEOquery", version = "3.8")
+
+#When "Update all/some/none [a/s/n]:" pops up, type a and enter.
+
+#Import GEOquery into R.
+library(GEOquery)
+
+#Check to see what's in the supplement files
+fetch <- getGEOSuppFiles('GSE112049', fetch_files = FALSE) 
+print(fetch)
+
+#Download GSE112049 from GEO using R. This will download the supplemental files in your local folder, where your .Rmd file is located.
+getGEOSuppFiles('GSE112049')
+
+#Import table into 
+tab <- read.delim("GSE112049/GSE112049_rnaseq_matrix.txt.gz")
+
+#Global Environment will have "tab" with 13017 obs of 7 variables
+
+#Import tidyverse, which include dplyr package
+library(tidyverse) 
+#Note that dply 0.8.4 was imported along with other packages
+
+tib <-as.tibble(tab) #Let's convert it to tibble format
+tib
+summary(tib)
+
+#Convert to log values into linear values
+#Function lin to linerize each values of input.
+lin <- function(x, na.rm = FALS) (2^x) 
+
+#Generate a table with linearized gene expression values.Note that I use 'lin' function that I just generated.
+tiblin <- tib %>% mutate_at(vars(starts_with("W")), lin) %>% mutate_at(vars(starts_with("K")), lin) 
+
+#This will Convert log value to linear when header starts with W (for WT) or K (for KO)
+tiblin
+summary(tiblin)
+
+#Seperate WT and KO before calculating statistics
+tibWT <- select(tiblin, starts_with("W"))
+tibKO <- select(tiblin, starts_with("K"))
+
+#Calculate Fold change of gene expression.
+tibFC <- tiblin %>% 
+    mutate(KO.mean = rowMeans(tibKO)) %>%
+    mutate(WT.mean = rowMeans(tibWT)) %>%
+    mutate(FC = KO.mean/WT.mean)
+
+
+#Maybe from here is too advanced but will just run it to see what happens. 
+#For function tidy
+library(broom) 
+
+#for-loop t-test
+testresults <- vector("list", nrow(tiblin)) #To make empty vector
+
+for (j in seq(nrow(tiblin))) {
+  testresults[[j]] <- tidy(t.test(as.data.frame(tibKO[j,]), as.data.frame(tibWT[j,])))
+}
+  
+head(testresults)
+
+#Summarize statistics in t_stats
+t_stats = do.call(rbind, testresults) #list to dataframe
+t_stats
+
+#Generate a big 2D table including initial gene expression values and statistics side-by-side
+big_data <-bind_cols(tibFC, t_stats)
+glimpse(big_data)
+
+head(big_data)
+
+#Generate output csv table
+write.csv(big_data, file="GSE112049_all_data.csv")
+
+#You can now open GSE112049_all_data.csv from your window
+
+
+```
+
+
+```{r select genes of interest}
+
+#Let's take a look at your genes of interest using 'select' and 'filter' in dplyr
+
+#Select genes with high fold changes
+signif <- big_data %>%
+  select(Gene, KO.mean, WT.mean, FC, p.value) %>%
+  filter(p.value<0.01 & (FC>2 | FC<1/2)) %>%
+  arrange(desc(FC))
+
+signif
+
+write.csv(signif, file="GSE112049_significant_2fold_only.csv")
+
+
+
+#Focus on Notch and other interesting genes, align based on FC
+#There should be more elegant ways of doing it.   
+
+selectgenes <- 
+  big_data %>%
+  select(Gene, KO.mean, WT.mean, FC, p.value) %>%
+  filter(Gene == "Notch1"| Gene=="Notch2" | Gene=="Hes1" | Gene=="Hes2" | Gene=="Nrarp"| Gene=="Dtx1"| Gene == "Rbpj" |Gene =="Actb" | Gene=="Id3"| Gene=="Foxo1" | Gene=="Tcf7" | Gene=="Cxcr5" | Gene=="Il7r" | Gene=="Ctla4" | Gene=="pcdc1" | Gene=="Havcr2" | Gene=="Klrg1" | Gene=="Zeb2" | Gene=="Bcl2" | Gene=="Myb") %>%
+  arrange(desc(FC))
+
+selectgenes
+
+write.csv(selectgenes, file="GSE112049_manually_selected_genes.csv")
+
+
+```
